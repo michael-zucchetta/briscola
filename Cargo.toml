@@ -1,0 +1,11 @@
+[package]
+name = "briscola"
+version = "0.1.0"
+authors = ["michael-zucchetta <michael.zucchetta@protonmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+yew = { version = "0.17.4", package = "yew" }
+web-sys = { version = "0.3.0", package = "web-sys" }
