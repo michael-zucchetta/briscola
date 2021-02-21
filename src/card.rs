@@ -38,11 +38,27 @@ impl CardNumber {
         static CARD_NUMBERS: [CardNumber; 10] = [Ace, Two, Three, Four, Five, Six, Seven, Knave, Knight, King];
         CARD_NUMBERS.iter()
     }
+
+    pub fn eval(&self) -> u8 {
+        match self {
+            Ace => 1u8,
+            Two => 2u8,
+            Three => 3u8,
+            Four => 4u8,
+            Five => 5u8,
+            Six => 6u8,
+            Seven => 7u8,
+            Knave => 8u8,
+            Knight => 9u8,
+            King => 10u8
+        }
+    }
 }
 
+#[derive(Clone, Copy)]
 pub struct Card {
-    value: CardNumber,
-    suit: CardSuit
+    pub value: CardNumber,
+    pub suit: CardSuit
 }
 
 impl Card {
@@ -53,7 +69,7 @@ impl Card {
 	}
     }
 
-    fn load_cards() -> Vec<Card> {// &'static [Card] {
+    pub fn load_cards() -> Vec<Card> {// &'static [Card] {
         CardSuit::iterator().flat_map(move |&suit| {
             CardNumber::iterator().map(move |&number|
                  Card::new(number, suit)
