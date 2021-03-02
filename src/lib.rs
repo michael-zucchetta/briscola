@@ -5,8 +5,11 @@ pub mod card;
 // pub use card::{Card};
 
 pub mod deck;
+pub mod game;
 pub mod painter;
+pub mod player;
 pub mod console;
+
 
 struct Model {
     link: ComponentLink<Self>,

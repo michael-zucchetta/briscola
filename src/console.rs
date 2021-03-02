@@ -3,8 +3,12 @@ use ansi_term::Colour;
 
 use crate::painter;
 use crate::card;
+use crate::game;
+use crate::player;
 
 use std::fmt;
+use std::io;
+use std::char;
 
 struct ConsolePainter {
 }
@@ -38,6 +42,18 @@ impl fmt::Display for card::Card  {
         let (value, suit, color) = ConsolePainter::get_card(*self);
         write!(f, "{}{}", value, color.bold().paint(suit))
         
+    }
+}
+
+
+impl game::LiveGame for player::Player {
+    fn user_input(self) -> card::Card {
+        let mut command_as_text = String::new();
+        println!("Selecting move");
+        io::stdin().read_line(&mut command_as_text);
+        println!("Selecting move");
+        let card_index = command_as_text.parse::<usize>().unwrap();
+        self.select_card(card_index)
     }
 }
 

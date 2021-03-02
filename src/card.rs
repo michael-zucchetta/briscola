@@ -4,7 +4,7 @@ use self::CardNumber::*;
 use std::slice::Iter;
 
 // allows printing
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum CardSuit {
     Cups,
     Batons,
@@ -19,7 +19,7 @@ impl CardSuit {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CardNumber {
     Ace,
     Two,
@@ -55,7 +55,7 @@ impl CardNumber {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Card {
     pub value: CardNumber,
     pub suit: CardSuit
@@ -75,5 +75,11 @@ impl Card {
                  Card::new(number, suit)
             )
         }).collect::<Vec<Card>>()
+    }
+}
+
+impl PartialEq for Card {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value && self.suit ==  other.suit
     }
 }
