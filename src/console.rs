@@ -4,11 +4,10 @@ use ansi_term::Colour;
 use crate::painter;
 use crate::card;
 use crate::game;
-use crate::player;
 
 use std::fmt;
 use std::io;
-use std::char;
+use std::string;
 
 struct ConsolePainter {
 }
@@ -45,17 +44,33 @@ impl fmt::Display for card::Card  {
     }
 }
 
+#[derive(Clone)]
+struct Console {
 
+}
+
+impl game::UserInput for Console {
+    fn user_input() -> usize {
+        let mut command_as_text = string::String::new();
+        println!("selecting move");
+        io::stdin().read_line(&mut command_as_text);
+        println!("selecting move");
+        command_as_text.parse::<usize>().unwrap()
+    }
+}
+
+/*
 impl game::LiveGame for player::Player {
     fn user_input(self) -> card::Card {
-        let mut command_as_text = String::new();
-        println!("Selecting move");
+        let mut command_as_text = string::new();
+        println!("selecting move");
         io::stdin().read_line(&mut command_as_text);
-        println!("Selecting move");
+        println!("selecting move");
         let card_index = command_as_text.parse::<usize>().unwrap();
         self.select_card(card_index)
     }
 }
+*/
 
 #[cfg(test)]
 mod tests {

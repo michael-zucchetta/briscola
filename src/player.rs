@@ -1,24 +1,27 @@
 use crate::card;
 
 use std::cell::Cell;
+use crate::game;
 
 pub enum PlayerType {
     AI,
     Player
 }
 
-pub struct Player {
+pub struct Player<T: game::UserInput>  {
     player_type: PlayerType,
     hand: Cell<Vec<card::Card>>,
-    cards_won: Vec<card::Card>
+    cards_won: Vec<card::Card>,
+    user_input: T
 }
 
-impl Player {
-    pub fn new(player_type: PlayerType) -> Player {
+impl <T> Player <T> where T: game::UserInput {
+    pub fn new(player_type: PlayerType, user_input: T) -> Player<T> {
 	Player {
 	    player_type: player_type,
 	    hand: Cell::new(vec![]),
 	    cards_won: vec![],
+            user_input: user_input,
 	}
     }
 
