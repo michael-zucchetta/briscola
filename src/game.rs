@@ -1,12 +1,18 @@
 use crate::deck;
 use crate::card;
+use crate::constants;
 use crate::game;
 use crate::painter;
 use crate::player;
 
 extern crate rand;
+extern crate rand_core;
 
-use rand::rngs::EntropyRng;
+use rand::RngCore;
+use rand_core::OsRng;
+use std::ops::Range;
+
+// use rand::rngs::{OsRng, RngCore};
 
 
 pub enum GameMode {
@@ -61,11 +67,12 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
                 }
             //PlayersSize::Four =>
         };
-        let mut rng = EntropyRng::new();
-        let value = rng.next_usize() % 2;
+        // let mut key = [0u8; 16];
+        let value = OsRng.next_u32() as usize % 2;
         let turn = match value {
             0 => PlayerTurn::Player1,
             1 => PlayerTurn::Player2,
+            _ => panic!("value generated outside of range"),
         };
         Game {
             deck: deck,
@@ -74,6 +81,17 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
             players_size: players_size,
             player_turn: turn,
             painter: painter
+        }
+    }
+
+    fn assign_cards(&self) {
+        // constants.HAND_SIZE
+        for player in self.players.iter() {
+            let mut hand = Vec::with_capacity(3);
+            for _ in 0..constants::HAND_SIZE {
+                hand.push(self.deck.get_card().unwrap());
+            }
+            player.assign_cards(hand);
         }
     }
 

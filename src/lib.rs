@@ -4,6 +4,7 @@ use yew::prelude::*;
 pub mod card;
 // pub use card::{Card};
 
+pub mod constants;
 pub mod deck;
 pub mod game;
 pub mod painter;
