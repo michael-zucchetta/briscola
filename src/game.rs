@@ -44,7 +44,7 @@ pub struct Game<T: painter::Painter, Y: game::UserInput> {
 
 impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
 
-    pub fn new(players_size: PlayersSize, game_mode: GameMode, painter: T, user_input: Y) -> Game<T, Y> {
+    pub fn new(players_size: PlayersSize, game_mode: GameMode, painter: T, user_input_action: Y) -> Game<T, Y> {
         let deck = deck::Deck::new();
         // TODO: change to have multiple players (two or four)
         let players = match players_size {
@@ -52,17 +52,17 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
                 match game_mode {
                     GameMode::AIvsAI => {
                         [
-                            player::Player::new(player::PlayerType::AI, user_input.clone()),
-                            player::Player::new(player::PlayerType::AI, user_input)
+                            player::Player::new(player::PlayerType::AI, user_input_action.clone()),
+                            player::Player::new(player::PlayerType::AI, user_input_action)
                         ]
                     },
                     GameMode::PlayerVsAI => {
-                        [player::Player::new(player::PlayerType::Player, user_input.clone()),
-                        player::Player::new(player::PlayerType::AI, user_input)]
+                        [player::Player::new(player::PlayerType::Player, user_input_action.clone()),
+                        player::Player::new(player::PlayerType::AI, user_input_action)]
                     },
                     GameMode::PlayerVsPlayer => {
-                        [player::Player::new(player::PlayerType::Player, user_input.clone()),
-                        player::Player::new(player::PlayerType::Player, user_input)]
+                        [player::Player::new(player::PlayerType::Player, user_input_action.clone()),
+                        player::Player::new(player::PlayerType::Player, user_input_action)]
                     },
                 }
             //PlayersSize::Four =>
@@ -102,5 +102,31 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
 }
 
 pub trait UserInput: Send + Clone {
-    fn user_input() -> usize; 
+    fn user_input_action() -> usize; 
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::game::*;
+    #[derive(Clone)]
+    struct MockInput {}
+
+    impl game::UserInput for MockInput {
+        fn user_input_action() -> usize {
+            1usize
+        }
+    }
+
+    impl painter::Painter for MockInput {
+        fn print_card(card: card::Card) {
+
+        }
+    }
+
+    #[test]
+    fn init_game() {
+        let game = Game::new(game::PlayersSize::Two, game::GameMode::AIvsAI, MockInput{}, MockInput{});
+        game.assign_cards();
+        // assert_eq!(game.hand_size(), 3);
+    }
 }

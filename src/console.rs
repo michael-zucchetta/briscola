@@ -50,7 +50,7 @@ struct Console {
 }
 
 impl game::UserInput for Console {
-    fn user_input() -> usize {
+    fn user_input_action() -> usize {
         let mut command_as_text = string::String::new();
         println!("selecting move");
         io::stdin().read_line(&mut command_as_text);
@@ -61,7 +61,7 @@ impl game::UserInput for Console {
 
 /*
 impl game::LiveGame for player::Player {
-    fn user_input(self) -> card::Card {
+    fn user_input_action(self) -> card::Card {
         let mut command_as_text = string::new();
         println!("selecting move");
         io::stdin().read_line(&mut command_as_text);

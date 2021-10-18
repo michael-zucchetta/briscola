@@ -24,3 +24,20 @@ impl Deck {
         self.cards.borrow_mut().pop()
     }
 }
+
+
+#[cfg(test)]
+mod tests {
+    use crate::deck::*;
+
+    #[test]
+    fn get_card() {
+        let deck = Deck::new();
+        for i in 0..40 {
+            let card = deck.get_card();
+            assert!(card.is_some())
+        }
+        // should be empty after getting all cards
+        assert!(deck.get_card().is_none());
+    }
+}

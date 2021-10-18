@@ -12,16 +12,16 @@ pub struct Player<T: game::UserInput>  {
     player_type: PlayerType,
     hand: Cell<Vec<card::Card>>,
     cards_won: Vec<card::Card>,
-    user_input: T
+    user_input_action: T
 }
 
 impl <T> Player <T> where T: game::UserInput {
-    pub fn new(player_type: PlayerType, user_input: T) -> Player<T> {
+    pub fn new(player_type: PlayerType, user_input_action: T) -> Player<T> {
 	Player {
 	    player_type: player_type,
 	    hand: Cell::new(vec![]),
 	    cards_won: vec![],
-            user_input: user_input,
+            user_input_action: user_input_action,
 	}
     }
 
@@ -37,11 +37,26 @@ impl <T> Player <T> where T: game::UserInput {
 	    (*cards).remove(card_index)
 	}
     }
+
+    pub fn hand_size(&self) -> usize {
+        let cards = self.hand.as_ptr();
+        unsafe { (*cards).len() }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::player::*;
+
+    #[derive(Clone)]
+    struct MockInput {}
+
+    impl game::UserInput for MockInput {
+        fn user_input_action() -> usize {
+            1usize
+        }
+    }
+
     #[test]
     fn select_card() {
 	let card1 = card::Card::new( card::CardNumber::Two, card::CardSuit::Cups);
@@ -51,7 +66,7 @@ mod tests {
         hand.push(card1);
         hand.push(card2);
         hand.push(card3);
-        let player = Player::new(PlayerType::Player);
+        let player = Player::new(PlayerType::Player, MockInput{});
         player.assign_cards(hand);
         let selected_card = player.select_card(2);
         assert_eq!(selected_card, card2); 
