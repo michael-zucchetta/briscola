@@ -39,7 +39,7 @@ pub struct Game<T: painter::Painter, Y: game::UserInput> {
     game_mode: GameMode,
     players_size: PlayersSize,
     player_turn: PlayerTurn,
-    painter: T 
+    painter: T
 }
 
 impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
@@ -95,12 +95,11 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
         }
     }
 
-
     pub fn turn() {
 
     }
 }
 
 pub trait UserInput: Send + Clone {
-    fn user_input() -> usize; 
+    fn user_input() -> usize;
 }

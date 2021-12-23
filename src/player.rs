@@ -42,6 +42,7 @@ impl <T> Player <T> where T: game::UserInput {
 #[cfg(test)]
 mod tests {
     use crate::player::*;
+    use crate::console;
     #[test]
     fn select_card() {
 	let card1 = card::Card::new( card::CardNumber::Two, card::CardSuit::Cups);
@@ -51,10 +52,10 @@ mod tests {
         hand.push(card1);
         hand.push(card2);
         hand.push(card3);
-        let player = Player::new(PlayerType::Player);
+        let player = Player::new(PlayerType::Player, console::Console::new());
         player.assign_cards(hand);
         let selected_card = player.select_card(2);
-        assert_eq!(selected_card, card2); 
+        assert_eq!(selected_card, card2);
     }
 }
 

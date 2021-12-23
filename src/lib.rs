@@ -2,6 +2,7 @@ use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 
 pub mod card;
+pub mod hand;
 // pub use card::{Card};
 
 pub mod constants;
