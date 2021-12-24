@@ -10,7 +10,6 @@ extern crate rand_core;
 
 use rand::RngCore;
 use rand_core::OsRng;
-use std::ops::Range;
 
 // use rand::rngs::{OsRng, RngCore};
 
@@ -26,6 +25,7 @@ pub enum PlayersSize {
     // Four,
 }
 
+#[derive(PartialEq, Clone, Copy)]
 pub enum PlayerTurn {
     Player1,
     Player2,
@@ -35,6 +35,7 @@ pub enum PlayerTurn {
 
 pub struct Game<T: painter::Painter, Y: game::UserInput> {
     deck: deck::Deck,
+    briscola: card::Card,
     players: [player::Player<Y>; 2],
     game_mode: GameMode,
     players_size: PlayersSize,
@@ -74,8 +75,10 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
             1 => PlayerTurn::Player2,
             _ => panic!("value generated outside of range"),
         };
+        let briscola = deck.get_briscola();
         Game {
             deck: deck,
+            briscola: briscola,
             players: players,
             game_mode: game_mode,
             players_size: players_size,
@@ -95,11 +98,63 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
         }
     }
 
-    pub fn turn() {
+    pub fn wins_first(&self, card1: card::Card, card2: card::Card) -> bool {
+        if card1.suit == self.briscola.suit {
+           if card2.suit != self.briscola.suit {
+              true
+           } else {
+             card1.value.eval() > card2.value.eval()
+           }
+        } else {
+          if card2.suit == self.briscola.suit {
+             false
+          } else {
+             card1.value.eval() > card2.value.eval()
+          }
+        }
+    }
 
+    pub fn turn(&self) {
+        self.assign_cards();
+        for i in 0..3 {
+            let (player1, player2) = if self.player_turn == PlayerTurn::Player1 {
+                (
+                    self.players.get(0).unwrap(),
+                    self.players.get(1).unwrap(),
+                )
+            } else {
+                (
+                    self.players.get(1).unwrap(),
+                    self.players.get(0).unwrap(),
+                )
+            };
+            let card1 = player1.play_card();
+            let card2 = player2.play_card();
+            let mut cards_won = Vec::with_capacity(2);
+            cards_won.push(card1);
+            cards_won.push(card2);
+            if self.wins_first(card1, card2) {
+               player1.add_won_cards(&mut cards_won);
+            } else {
+               player2.add_won_cards(&mut cards_won);
+            }
+        }
+    }
+
+    pub fn game(&self) -> usize {
+        while !self.deck.is_game_ended() {
+          self.turn();
+        }
+        let score1 = self.players.get(0).unwrap().calculate_score();
+        let score2 = self.players.get(1).unwrap().calculate_score();
+        if score1 > score2 {
+          0
+        } else {
+          1
+        }
     }
 }
 
 pub trait UserInput: Send + Clone {
-    fn user_input() -> usize;
+    fn user_input(&self) -> usize;
 }

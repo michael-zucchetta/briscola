@@ -5,8 +5,7 @@ use crate::hand;
 use std::cell::RefCell;
 
 pub struct Deck {
-    pub cards: RefCell<Vec<card::Card>>,
-    pub briscola: card::Card
+    cards: RefCell<Vec<card::Card>>
 }
 
 impl Deck {
@@ -14,12 +13,18 @@ impl Deck {
         let mut cards = card::Card::load_cards();
         Deck::shuffle_deck(&mut cards);
         // cloned -> clones the inner reference
-        let briscola = cards.last().cloned().unwrap();
 
         Deck{
             cards: RefCell::new(cards),
-            briscola: briscola,
         }
+    }
+
+    pub fn get_briscola(&self) -> card::Card {
+        self.cards.borrow().last().cloned().unwrap()
+    }
+
+    pub fn is_game_ended(&self) -> bool {
+        self.cards.borrow().len() == 0
     }
 
     fn shuffle_deck(cards: &mut Vec<card::Card>) {

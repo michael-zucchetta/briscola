@@ -75,7 +75,7 @@ impl Console {
 }
 
 impl game::UserInput for Console {
-    fn user_input() -> usize {
+    fn user_input(&self) -> usize {
         let mut command_as_text = string::String::new();
         println!("selecting move");
         io::stdin().read_line(&mut command_as_text);
