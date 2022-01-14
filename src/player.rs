@@ -1,5 +1,7 @@
 use crate::card;
 
+use rand::RngCore;
+use rand_core::OsRng;
 use std::cell::Cell;
 use crate::game;
 use crate::hand;
@@ -38,11 +40,16 @@ impl <T> Player <T> where T: game::UserInput {
     }
 
     pub fn play_card(&self) -> card::Card {
-       let selected = if self.player_type == PlayerType::AI {
-           0
+      let selected = if self.player_type == PlayerType::AI {
+          let hand_size = self.hand.size();
+          let random = OsRng.next_u32() as usize;
+          let selected = random % hand_size;
+          println!("Cards size in player {} {} {}", hand_size, random, selected);
+          selected
        } else {
            self.input_handler.user_input()
        };
+
        self.select_card(selected)
     }
 

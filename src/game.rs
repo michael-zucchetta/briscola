@@ -94,6 +94,7 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
             for _ in 0..constants::HAND_SIZE {
                 hand.push(self.deck.get_card().unwrap());
             }
+            println!("Hand size is {}", hand.len());
             player.assign_cards(hand);
         }
     }
@@ -117,6 +118,7 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
     pub fn turn(&self) {
         self.assign_cards();
         for i in 0..3 {
+            println!("N. {}", i);
             let (player1, player2) = if self.player_turn == PlayerTurn::Player1 {
                 (
                     self.players.get(0).unwrap(),
@@ -130,6 +132,7 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
             };
             let card1 = player1.play_card();
             let card2 = player2.play_card();
+            println!("Card played by 1 {} and card played by 2 {}", card1, card2);
             let mut cards_won = Vec::with_capacity(2);
             cards_won.push(card1);
             cards_won.push(card2);
@@ -142,7 +145,11 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
     }
 
     pub fn game(&self) -> usize {
+        println!("Beginning game");
+        let mut i = 0u8;
         while !self.deck.is_game_ended() {
+          i = i + 1;
+          println!("Turn {}", i);
           self.turn();
         }
         let score1 = self.players.get(0).unwrap().calculate_score();

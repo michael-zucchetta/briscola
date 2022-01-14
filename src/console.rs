@@ -3,10 +3,8 @@ use ansi_term::Colour;
 
 use crate::painter;
 use crate::card;
-use crate::deck;
 use crate::hand;
 use crate::game;
-use crate::player;
 
 use std::fmt;
 use std::io;
@@ -28,7 +26,7 @@ impl ConsolePainter {
         (value, suit_as_string, color)
     }
 
-    fn new() -> ConsolePainter {
+    pub fn new() -> ConsolePainter {
        ConsolePainter {
        }
     }
@@ -38,6 +36,13 @@ impl painter::Painter for ConsolePainter {
     fn print_card(card: card::Card) {
         let (value, suit, color) = ConsolePainter::get_card(card);
         println!("{} {}", value, color.bold().paint(suit));
+    }
+
+    fn draw_beginning() { // fn draw_beginning(deck: deck::Deck, players: [player::Player<Console>; 2]) {
+       
+    }
+
+    fn update_game() {
     }
 }
 
@@ -82,6 +87,14 @@ impl game::UserInput for Console {
         println!("selecting move");
         command_as_text.parse::<usize>().unwrap()
     }
+}
+
+
+impl fmt::Display for game::Game<ConsolePainter, Console> {
+   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+     write!(f, "")
+   }
+
 }
 
 /*
