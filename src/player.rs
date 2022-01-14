@@ -35,6 +35,12 @@ impl <T> Player <T> where T: game::UserInput {
 	self.hand.assign_cards(cards);
     }
 
+    pub fn add_card_to_hand(&self, card: card::Card) { 
+        let mut cards = self.hand.get_hand();
+        cards.push(card);
+        self.assign_cards(cards);
+    }
+
     pub fn select_card(&self, selected_card: usize) -> card::Card {
         self.hand.select_card(selected_card)
     }

@@ -12,7 +12,8 @@ fn main() {
        console::ConsolePainter::new(),
        console::Console::new()
     );
-    game.game();
+    let player_won = game.game();
+    println!("Player {} won", player_won);
     /* for card in deck.cards.borrow().iter() {
         println!("CICCIO CANE {}", card);
     }*/

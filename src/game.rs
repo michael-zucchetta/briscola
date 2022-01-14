@@ -87,15 +87,18 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
         }
     }
 
-    fn assign_cards(&self) {
+    fn assign_cards(&self, initial: bool) {
         // constants.HAND_SIZE
         for player in self.players.iter() {
-            let mut hand = Vec::with_capacity(3);
-            for _ in 0..constants::HAND_SIZE {
+            if initial {
+              let mut hand = Vec::with_capacity(3);
+              for _ in 0..constants::HAND_SIZE {
                 hand.push(self.deck.get_card().unwrap());
+              }
+              player.assign_cards(hand);
+            } else {
+              player.add_card_to_hand(self.deck.get_card().unwrap());
             }
-            println!("Hand size is {}", hand.len());
-            player.assign_cards(hand);
         }
     }
 
@@ -115,9 +118,15 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
         }
     }
 
-    pub fn turn(&self) {
-        self.assign_cards();
-        for i in 0..3 {
+    pub fn turn(&self, initial: bool) {
+        self.assign_cards(initial);
+        let last_turn = self.deck.is_deck_empty();
+        let plays_size = if last_turn {
+          3usize
+        } else {
+          1usize
+        };
+        for i in 0..plays_size {
             println!("N. {}", i);
             let (player1, player2) = if self.player_turn == PlayerTurn::Player1 {
                 (
@@ -137,8 +146,10 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
             cards_won.push(card1);
             cards_won.push(card2);
             if self.wins_first(card1, card2) {
+               println!("Player 1 won turn");
                player1.add_won_cards(&mut cards_won);
             } else {
+               println!("Player 2 won turn");
                player2.add_won_cards(&mut cards_won);
             }
         }
@@ -147,13 +158,15 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
     pub fn game(&self) -> usize {
         println!("Beginning game");
         let mut i = 0u8;
-        while !self.deck.is_game_ended() {
+        while !self.deck.is_deck_empty() {
           i = i + 1;
           println!("Turn {}", i);
-          self.turn();
+          self.turn(i == 1);
         }
         let score1 = self.players.get(0).unwrap().calculate_score();
         let score2 = self.players.get(1).unwrap().calculate_score();
+        println!("Player 1 score is {}", score1);
+        println!("Player 2 score is {}", score2);
         if score1 > score2 {
           0
         } else {

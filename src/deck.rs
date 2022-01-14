@@ -23,7 +23,7 @@ impl Deck {
         self.cards.borrow().last().cloned().unwrap()
     }
 
-    pub fn is_game_ended(&self) -> bool {
+    pub fn is_deck_empty(&self) -> bool {
         self.cards.borrow().len() == 0
     }
 
