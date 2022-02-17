@@ -3,6 +3,7 @@
 use briscola::deck;
 use briscola::game;
 use briscola::console;
+use briscola::run_app;
 
 fn main() {
     let deck = deck::Deck::new();
@@ -18,5 +19,5 @@ fn main() {
         println!("CICCIO CANE {}", card);
     }*/
 
-
+    run_app();
 }

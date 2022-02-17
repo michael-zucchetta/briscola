@@ -157,6 +157,7 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
 
     pub fn game(&self) -> usize {
         println!("Beginning game");
+        T::draw_beginning(&self.deck);//self.painter);
         let mut i = 0u8;
         while !self.deck.is_deck_empty() {
           i = i + 1;

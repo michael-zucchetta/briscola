@@ -3,6 +3,7 @@ use ansi_term::Colour;
 
 use crate::painter;
 use crate::card;
+use crate::deck;
 use crate::hand;
 use crate::game;
 
@@ -38,8 +39,9 @@ impl painter::Painter for ConsolePainter {
         println!("{} {}", value, color.bold().paint(suit));
     }
 
-    fn draw_beginning() { // fn draw_beginning(deck: deck::Deck, players: [player::Player<Console>; 2]) {
-       
+    fn draw_beginning(deck: &deck::Deck) {
+      println!("Beginning game");
+      println!("Briscola is {}", deck.get_briscola());
     }
 
     fn update_game() {

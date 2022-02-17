@@ -11,7 +11,7 @@ pub mod game;
 pub mod painter;
 pub mod player;
 pub mod console;
-
+pub mod web;
 
 struct Model {
     link: ComponentLink<Self>,
@@ -56,7 +56,21 @@ impl Component for Model {
     }
 }
 
+fn create_canvas(document: &Document) -> HtmlCanvasElement {
+    let canvas = HtmlCanvasElement::from(JsValue::from(document.create_element("canvas").unwrap()));
+    canvas.set_width(100);
+    canvas.set_height(100);
+    let ctx =
+        CanvasRenderingContext2d::from(JsValue::from(canvas.get_context("2d").unwrap().unwrap()));
+    ctx.set_fill_style(&JsValue::from_str("green"));
+    ctx.fill_rect(10., 10., 50., 50.);
+
+    canvas
+}
+
 #[wasm_bindgen(start)]
 pub fn run_app() {
     App::<Model>::new().mount_to_body();
+    let canvas = create_canvas(&document);
+    body.append_child(&canvas).unwrap();
 }
