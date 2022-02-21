@@ -10,7 +10,6 @@ extern crate rand_core;
 
 use rand::RngCore;
 use rand_core::OsRng;
-use std::ops::Range;
 
 // use rand::rngs::{OsRng, RngCore};
 
@@ -26,6 +25,7 @@ pub enum PlayersSize {
     // Four,
 }
 
+#[derive(PartialEq, Clone, Copy)]
 pub enum PlayerTurn {
     Player1,
     Player2,
@@ -35,16 +35,17 @@ pub enum PlayerTurn {
 
 pub struct Game<T: painter::Painter, Y: game::UserInput> {
     deck: deck::Deck,
+    briscola: card::Card,
     players: [player::Player<Y>; 2],
     game_mode: GameMode,
     players_size: PlayersSize,
     player_turn: PlayerTurn,
-    painter: T 
+    painter: T
 }
 
 impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
 
-    pub fn new(players_size: PlayersSize, game_mode: GameMode, painter: T, user_input_action: Y) -> Game<T, Y> {
+    pub fn new(players_size: PlayersSize, game_mode: GameMode, painter: T, user_input: Y) -> Game<T, Y> {
         let deck = deck::Deck::new();
         // TODO: change to have multiple players (two or four)
         let players = match players_size {
@@ -52,17 +53,17 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
                 match game_mode {
                     GameMode::AIvsAI => {
                         [
-                            player::Player::new(player::PlayerType::AI, user_input_action.clone()),
-                            player::Player::new(player::PlayerType::AI, user_input_action)
+                            player::Player::new(player::PlayerType::AI, user_input.clone()),
+                            player::Player::new(player::PlayerType::AI, user_input)
                         ]
                     },
                     GameMode::PlayerVsAI => {
-                        [player::Player::new(player::PlayerType::Player, user_input_action.clone()),
-                        player::Player::new(player::PlayerType::AI, user_input_action)]
+                        [player::Player::new(player::PlayerType::Player, user_input.clone()),
+                        player::Player::new(player::PlayerType::AI, user_input)]
                     },
                     GameMode::PlayerVsPlayer => {
-                        [player::Player::new(player::PlayerType::Player, user_input_action.clone()),
-                        player::Player::new(player::PlayerType::Player, user_input_action)]
+                        [player::Player::new(player::PlayerType::Player, user_input.clone()),
+                        player::Player::new(player::PlayerType::Player, user_input)]
                     },
                 }
             //PlayersSize::Four =>
@@ -74,8 +75,10 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
             1 => PlayerTurn::Player2,
             _ => panic!("value generated outside of range"),
         };
+        let briscola = deck.get_briscola();
         Game {
             deck: deck,
+            briscola: briscola,
             players: players,
             game_mode: game_mode,
             players_size: players_size,
@@ -84,49 +87,95 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
         }
     }
 
-    fn assign_cards(&self) {
+    fn assign_cards(&self, initial: bool) {
         // constants.HAND_SIZE
         for player in self.players.iter() {
-            let mut hand = Vec::with_capacity(3);
-            for _ in 0..constants::HAND_SIZE {
+            if initial {
+              let mut hand = Vec::with_capacity(3);
+              for _ in 0..constants::HAND_SIZE {
                 hand.push(self.deck.get_card().unwrap());
+              }
+              player.assign_cards(hand);
+            } else {
+              player.add_card_to_hand(self.deck.get_card().unwrap());
             }
-            player.assign_cards(hand);
         }
     }
 
+    pub fn wins_first(&self, card1: card::Card, card2: card::Card) -> bool {
+        if card1.suit == self.briscola.suit {
+           if card2.suit != self.briscola.suit {
+              true
+           } else {
+             card1.value.eval() > card2.value.eval()
+           }
+        } else {
+          if card2.suit == self.briscola.suit {
+             false
+          } else {
+             card1.value.eval() > card2.value.eval()
+          }
+        }
+    }
 
-    pub fn turn() {
+    pub fn turn(&self, initial: bool) {
+        self.assign_cards(initial);
+        let last_turn = self.deck.is_deck_empty();
+        let plays_size = if last_turn {
+          3usize
+        } else {
+          1usize
+        };
+        for i in 0..plays_size {
+            println!("N. {}", i);
+            let (player1, player2) = if self.player_turn == PlayerTurn::Player1 {
+                (
+                    self.players.get(0).unwrap(),
+                    self.players.get(1).unwrap(),
+                )
+            } else {
+                (
+                    self.players.get(1).unwrap(),
+                    self.players.get(0).unwrap(),
+                )
+            };
+            let card1 = player1.play_card();
+            let card2 = player2.play_card();
+            println!("Card played by 1 {} and card played by 2 {}", card1, card2);
+            let mut cards_won = Vec::with_capacity(2);
+            cards_won.push(card1);
+            cards_won.push(card2);
+            if self.wins_first(card1, card2) {
+               println!("Player 1 won turn");
+               player1.add_won_cards(&mut cards_won);
+            } else {
+               println!("Player 2 won turn");
+               player2.add_won_cards(&mut cards_won);
+            }
+        }
+    }
 
+    pub fn game(&self) -> usize {
+        println!("Beginning game");
+        T::draw_beginning(&self.deck);//self.painter);
+        let mut i = 0u8;
+        while !self.deck.is_deck_empty() {
+          i = i + 1;
+          println!("Turn {}", i);
+          self.turn(i == 1);
+        }
+        let score1 = self.players.get(0).unwrap().calculate_score();
+        let score2 = self.players.get(1).unwrap().calculate_score();
+        println!("Player 1 score is {}", score1);
+        println!("Player 2 score is {}", score2);
+        if score1 > score2 {
+          0
+        } else {
+          1
+        }
     }
 }
 
 pub trait UserInput: Send + Clone {
-    fn user_input_action() -> usize; 
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::game::*;
-    #[derive(Clone)]
-    struct MockInput {}
-
-    impl game::UserInput for MockInput {
-        fn user_input_action() -> usize {
-            1usize
-        }
-    }
-
-    impl painter::Painter for MockInput {
-        fn print_card(card: card::Card) {
-
-        }
-    }
-
-    #[test]
-    fn init_game() {
-        let game = Game::new(game::PlayersSize::Two, game::GameMode::AIvsAI, MockInput{}, MockInput{});
-        game.assign_cards();
-        // assert_eq!(game.hand_size(), 3);
-    }
+    fn user_input(&self) -> usize;
 }

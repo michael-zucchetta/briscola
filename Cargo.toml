@@ -2,20 +2,37 @@
 name = "briscola"
 version = "0.1.0"
 authors = ["michael-zucchetta <michael.zucchetta@protonmail.com>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[dev-dependencies]
+wasm-bindgen-test = "0.3.0"
 
 [dependencies]
 getrandom = { version = "0.2", features = ["js"] }
 ansi_term = "0.12.1"
 rand = { version = "0.8.3"  }
 rand_core = { version = "0.6.2" }
-yew = { version = "0.17.4", package = "yew" }
-web-sys = { version = "0.3.47", package = "web-sys" }
+js-sys  = { version = "0.3.50" }
+yew = { version = "0.18.0", package = "yew" }
+# web-sys = { version = "0.3.55", package = "web-sys" }
 wasm-bindgen = "0.2.67"
+getrandom = { version = "0.2", features = ["js"] }
 
+[dependencies.web-sys]
+version = "0.3.55"
+features = [
+  'HtmlCanvasElement',
+  'WebGlBuffer',
+  'WebGlProgram',
+  'WebGlRenderingContext',
+  'WebGlShader',
+  'WebGlUniformLocation',
+]
+
+[target.wasm32-unknown-unknown]
+runner = 'wasm-bindgen-test-runner'
