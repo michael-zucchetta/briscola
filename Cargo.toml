@@ -21,7 +21,6 @@ js-sys  = { version = "0.3.50" }
 yew = { version = "0.18.0", package = "yew" }
 # web-sys = { version = "0.3.55", package = "web-sys" }
 wasm-bindgen = "0.2.67"
-getrandom = { version = "0.2", features = ["js"] }
 
 [dependencies.web-sys]
 version = "0.3.55"
@@ -32,6 +31,10 @@ features = [
   'WebGlRenderingContext',
   'WebGlShader',
   'WebGlUniformLocation',
+   'CanvasRenderingContext2d',
+  'Document',
+  'Element',
+  'Window',
 ]
 
 [target.wasm32-unknown-unknown]

@@ -1,6 +1,7 @@
-use wasm_bindgen::prelude::*;
 use yew::prelude::*;
-
+use wasm_bindgen::prelude::*;
+use wasm_bindgen::JsCast;
+use web_sys::{CanvasRenderingContext2d, Document, HtmlCanvasElement};
 pub mod card;
 pub mod hand;
 // pub use card::{Card};
@@ -70,7 +71,11 @@ fn create_canvas(document: &Document) -> HtmlCanvasElement {
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
-    App::<Model>::new().mount_to_body();
+    let app = App::<Model>::new();
+    app.mount_to_body();
+    let document = web_sys::window().unwrap().document().unwrap();
+    let body = document.body().expect("document should have a body");
+
     let canvas = create_canvas(&document);
     body.append_child(&canvas).unwrap();
 }
