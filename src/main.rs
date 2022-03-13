@@ -3,7 +3,9 @@
 use briscola::deck;
 use briscola::game;
 use briscola::console;
+#[cfg(target_arch = "wasm32")]
 use briscola::run_app;
+use std::env;
 
 fn main() {
     let deck = deck::Deck::new();
@@ -18,6 +20,6 @@ fn main() {
     /* for card in deck.cards.borrow().iter() {
         println!("CICCIO CANE {}", card);
     }*/
-
+    #[cfg(target_arch = "wasm32")]
     run_app();
 }

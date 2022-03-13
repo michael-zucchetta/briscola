@@ -14,6 +14,8 @@ use rand_core::OsRng;
 // use rand::rngs::{OsRng, RngCore};
 
 
+trait Draw {}
+
 pub enum GameMode {
     AIvsAI,
     PlayerVsPlayer,

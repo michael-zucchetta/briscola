@@ -12,6 +12,8 @@ pub mod game;
 pub mod painter;
 pub mod player;
 pub mod console;
+
+#[cfg(target_arch = "wasm32")]
 pub mod web;
 
 struct Model {
@@ -70,6 +72,7 @@ fn create_canvas(document: &Document) -> HtmlCanvasElement {
 }
 
 #[wasm_bindgen(start)]
+#[cfg(target_arch = "wasm32")]
 pub fn run_app() {
     let app = App::<Model>::new();
     app.mount_to_body();
@@ -78,4 +81,8 @@ pub fn run_app() {
 
     let canvas = create_canvas(&document);
     body.append_child(&canvas).unwrap();
+
+    #[cfg(target_arch = "wasm32")]
+    web::main();
+    // Ok(())
 }
