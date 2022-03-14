@@ -17,6 +17,15 @@ impl CardSuit {
 	static CARD_SUITS: [CardSuit; 4] = [Cups, Batons, Coins, Swords];
 	CARD_SUITS.iter()
     }
+
+    pub fn to_string(&self) -> &str {
+        match self {
+            Cups => "cups",
+            Baton => "batons",
+            Coins => "coins",
+            Swords => "spade"
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -53,6 +62,22 @@ impl CardNumber {
             King => 10u8
         }
     }
+
+    pub fn to_string(&self) -> &str {
+        match self {
+            Ace => "asso",
+            Two =>"02",
+            Three => "03",
+            Four => "04",
+            Five => "05",
+            Six => "06",
+            Seven => "07",
+            Knave => "fante",
+            Knight => "cavallo",
+            King => "re"
+        }
+    }
+
 }
 
 #[derive(Clone, Copy, Debug)]

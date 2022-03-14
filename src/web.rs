@@ -1,7 +1,7 @@
 use crate::card;
 use yew::prelude::*;
 use wasm_bindgen::prelude::*;
-use web_sys::{CanvasRenderingContext2d, Document, HtmlCanvasElement, HtmlImageElement, SvgImageElement};
+use web_sys::{CanvasRenderingContext2d, Document, HtmlCanvasElement, HtmlImageElement, SvgElement, SvgImageElement};
 use std::fmt;
 use wasm_bindgen::JsCast;
 use std::cell::RefCell;
@@ -12,8 +12,9 @@ use std::rc::Rc;
 use std::task::{Context, Poll};
 
 
-fn from_card_to_url(card: card::Card) {
-
+const imagesPath: &str = "/assets/briscola/bresciane";
+fn from_card_to_url(card: card::Card) -> String {
+    [imagesPath, "/",card.suit.to_string(), "/", card.value.to_string(), ".svg"].concat()
 }
 
 // change display with draw and use fmt in console
@@ -26,12 +27,15 @@ fn from_card_to_url(card: card::Card) {
 
 fn create_canvas(document: &Document) -> HtmlCanvasElement {
     let canvas = HtmlCanvasElement::from(JsValue::from(document.create_element("canvas").unwrap()));
-    canvas.set_width(500);
-    canvas.set_height(800);
+    canvas.set_width(600);
+    canvas.set_height(1200);
+    canvas.style().set_property("width", "300px");
+    canvas.style().set_property("height", "600px");
     let ctx =
         CanvasRenderingContext2d::from(JsValue::from(canvas.get_context("2d").unwrap().unwrap()));
     ctx.set_fill_style(&JsValue::from_str("red"));
     ctx.fill_rect(10., 10., 200., 200.);
+    ctx.scale(2f64, 2f64);
 
     canvas
 }
@@ -99,15 +103,28 @@ pub fn main() {
     let div = document.create_element("div").unwrap();
     div.append_child(&canvas).unwrap();
     body.append_child(&div).unwrap();
-    let image = ImageFuture::new("/assets/briscola/bresciane/bastoni/02.svg");
-    let svg = document.create_element_ns(Some("http://www.w3.org/2000/svg"), "svg").unwrap();
+    let image = ImageFuture::new("/assets/briscola/bresciane/batons/02.svg");
+    let svg = document.create_element_ns(Some("http://www.w3.org/2000/svg"), "svg").unwrap()
+         .dyn_into::<web_sys::SvgElement>()
+         .map_err(|_| ())
+         .unwrap();
+    svg.set_attribute("width","500").unwrap();
+    svg.set_attribute("height","500").unwrap();
+    svg.set_attribute("viewBox", "0 0 500 500").unwrap();
+    let svgImage = document.create_element_ns(Some("http://www.w3.org/2000/svg"), "image").unwrap()
+         .dyn_into::<web_sys::SvgImageElement>()
+         .map_err(|_| ())
+         .unwrap();
+    let card = card::Card::new( card::CardNumber::Two, card::CardSuit::Cups);
+    svgImage.set_attribute_ns(Some("http://www.w3.org/1999/xlink"), "xlink:href", &from_card_to_url(card));
     let context = canvas
         .get_context("2d")
         .unwrap()
         .unwrap()
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
         .unwrap();
-
+    context.set_image_smoothing_enabled(true);
+    svg.append_child(&svgImage).unwrap();
     // should use this context.draw_image_with_svg_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     /*
 Try calling the drawImage function inside the image's load function to ensure that the image is actually loaded before trying to draw it.
@@ -116,19 +133,19 @@ internal_image.addEventListener("load", function() {
 }, false);*/
     context.draw_image_with_svg_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
-    //	&image.image.unwrap(),
-    &svg,
+    // &image.image.unwrap(),
+    &svgImage,
     0f64,
     0f64,
-    100f64,
-    200f64,
+    2f64 * 170f64,
+    2f64 * 340f64,
     0f64,
     0f64,
-    100f64,
-    200f64 
+    2f64 * 170f64,
+    2f64 * 340f64 
     ).unwrap();
     let div2 = document.create_element("div").unwrap();
-    // div2.append_child(&image.image.unwrap()).unwrap();
+    div2.append_child(&svg).unwrap();
     body.append_child(&div2).unwrap();
     // yew::start_app::<App>();
 }
