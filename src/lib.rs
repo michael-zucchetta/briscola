@@ -81,8 +81,15 @@ pub fn run_app() {
 
     let canvas = create_canvas(&document);
     body.append_child(&canvas).unwrap();
-
-    #[cfg(target_arch = "wasm32")]
+    let game = game::Game::new(
+       game::PlayersSize::Two,
+       // game::GameMode::AIVsAI,
+       game::GameMode::PlayerVsAI,
+       web::WebPainter::new(),
+       web::Web::new()
+    );
+    let res = game.game();
+    // #[cfg(target_arch = "wasm32")]
     web::main();
     // Ok(())
 }

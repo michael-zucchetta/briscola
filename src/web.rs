@@ -1,7 +1,14 @@
 use crate::card;
+use crate::hand;
+use crate::deck;
+use crate::game;
+use crate::painter;
+use ansi_term::Colour::{Yellow, Red, Green, Blue};
+use ansi_term::Colour;
+
 use yew::prelude::*;
 use wasm_bindgen::prelude::*;
-use web_sys::{CanvasRenderingContext2d, Document, HtmlCanvasElement, HtmlImageElement, SvgElement, SvgImageElement};
+use web_sys::{CanvasRenderingContext2d, Document, HtmlCanvasElement, HtmlImageElement, Element, SvgElement, SvgImageElement};
 use std::fmt;
 use wasm_bindgen::JsCast;
 use std::cell::RefCell;
@@ -11,6 +18,11 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll};
 
+macro_rules! log {
+    ( $( $t:tt )* ) => {
+        web_sys::console::log_1(&format!( $( $t )* ).into());
+    }
+}
 
 const imagesPath: &str = "/assets/briscola/bresciane";
 fn from_card_to_url(card: card::Card) -> String {
@@ -35,6 +47,78 @@ fn generate_svg(document: &Document, path: &String) -> SvgElement {
     svgImage.set_attribute_ns(Some("http://www.w3.org/1999/xlink"), "xlink:href", &path);
     svg.append_child(&svgImage).unwrap();
     return svg;
+}
+
+pub struct WebPainter {
+  player1CardsAreaDiv: Element
+  player2CardsAreaDiv: Element
+  playedCardsArea: Element
+  deckArea: Element 
+}
+
+impl WebPainter {
+    fn get_card(card: card::Card) -> (u8, &'static str, Colour) {
+        let (color, suit_as_string) = match card.suit {
+            card::CardSuit::Cups => (Blue, "Cups"),
+            card::CardSuit::Batons => (Green, "Batons"),
+            card::CardSuit::Coins => (Yellow, "Coins"),
+            card::CardSuit::Swords => (Red, "Swords"),
+        };
+        let value = card.value.eval();
+        (value, suit_as_string, color)
+    }
+    pub fn new() -> WebPainter {
+       WebPainter {} 
+    }
+}
+
+impl painter::Painter for WebPainter {
+    fn print_card(card: card::Card) {
+        let (value, suit, color) = WebPainter::get_card(card);
+        log!("{} {}", value, color.bold().paint(suit));
+    }
+
+    fn draw_beginning(deck: &deck::Deck) {
+      log!("Beginning game");
+      log!("Briscola is {}", deck.get_briscola());
+    }
+
+    fn update_game() {
+    }
+    fn print_cards(hand: hand::Hand) {
+       log!("User hand is {:?}", hand.get_hand_ref());
+    }
+
+    fn player_played_card(card: card::Card, player: usize) {
+       log!("Card played by player {} is {}", player, card);
+    }
+
+    fn player_won(player: usize, cards: &Vec<card::Card>) {
+      log!("Player {} won turn, and won these cards {:?}", player, cards);
+    }
+
+    fn player_scores(score1: u8, score2: u8) {
+        log!("Player 1 score is {}", score1);
+        log!("Player 2 score is {}", score2);
+    }
+}
+
+#[derive(Clone)]
+pub struct Web {
+
+}
+
+impl Web {
+
+  pub fn new() -> Web {
+    Web {}
+  }
+}
+
+impl game::UserInput for Web {
+    fn user_input(&self, hand: &hand::Hand) -> usize {
+      0usize
+    }
 }
 
 // change display with draw and use fmt in console
@@ -118,7 +202,7 @@ impl Future for ImageFuture {
 pub fn main() {
     let document = web_sys::window().unwrap().document().unwrap();
     let body = document.body().expect("document should have a body");
-
+    log!("Ciccio");
     let canvas = create_canvas(&document);
     let div = document.create_element("div").unwrap();
     div.append_child(&canvas).unwrap();
