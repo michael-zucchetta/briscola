@@ -50,10 +50,10 @@ impl <T> Player <T> where T: game::UserInput {
           let hand_size = self.hand.size();
           let random = OsRng.next_u32() as usize;
           let selected = random % hand_size;
-          println!("Cards size in player {} {} {}", hand_size, random, selected);
+          println!("Cards size in player, size {} {} selected={}", hand_size, random, selected);
           selected
        } else {
-           self.input_handler.user_input()
+           self.input_handler.user_input(&self.hand)
        };
 
        self.select_card(selected)

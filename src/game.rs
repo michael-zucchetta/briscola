@@ -1,5 +1,6 @@
 use crate::deck;
 use crate::card;
+use crate::hand;
 use crate::constants;
 use crate::game;
 use crate::painter;
@@ -14,10 +15,10 @@ use rand_core::OsRng;
 // use rand::rngs::{OsRng, RngCore};
 
 
-trait Draw {}
+trait Display {}
 
 pub enum GameMode {
-    AIvsAI,
+    AIVsAI,
     PlayerVsPlayer,
     PlayerVsAI,
 }
@@ -53,7 +54,7 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
         let players = match players_size {
             PlayersSize::Two =>
                 match game_mode {
-                    GameMode::AIvsAI => {
+                    GameMode::AIVsAI => {
                         [
                             player::Player::new(player::PlayerType::AI, user_input.clone()),
                             player::Player::new(player::PlayerType::AI, user_input)
@@ -129,7 +130,6 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
           1usize
         };
         for i in 0..plays_size {
-            println!("N. {}", i);
             let (player1, player2) = if self.player_turn == PlayerTurn::Player1 {
                 (
                     self.players.get(0).unwrap(),
@@ -142,16 +142,17 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
                 )
             };
             let card1 = player1.play_card();
+            T::player_played_card(card1, 1usize);
             let card2 = player2.play_card();
-            println!("Card played by 1 {} and card played by 2 {}", card1, card2);
+            T::player_played_card(card2, 2usize);
             let mut cards_won = Vec::with_capacity(2);
             cards_won.push(card1);
             cards_won.push(card2);
             if self.wins_first(card1, card2) {
-               println!("Player 1 won turn");
+               T::player_won(1usize, &cards_won);
                player1.add_won_cards(&mut cards_won);
             } else {
-               println!("Player 2 won turn");
+               T::player_won(2usize, &cards_won);
                player2.add_won_cards(&mut cards_won);
             }
         }
@@ -168,8 +169,7 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
         }
         let score1 = self.players.get(0).unwrap().calculate_score();
         let score2 = self.players.get(1).unwrap().calculate_score();
-        println!("Player 1 score is {}", score1);
-        println!("Player 2 score is {}", score2);
+        T::player_scores(score1, score2);
         if score1 > score2 {
           0
         } else {
@@ -179,5 +179,5 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
 }
 
 pub trait UserInput: Send + Clone {
-    fn user_input(&self) -> usize;
+    fn user_input(&self, hand: &hand::Hand) -> usize;
 }

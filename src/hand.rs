@@ -9,7 +9,6 @@ pub struct Hand {
 
 impl Hand {
   pub fn assign_cards(&self, cards: Vec<card::Card>) {
-    println!("Cards are {:?}", cards);
     let size = cards.len();
     self.cards.set(cards);
     self.size.set(size);
@@ -18,8 +17,6 @@ impl Hand {
   pub fn select_card(&self, selected_card: usize) -> card::Card {
     let card_index = selected_card;
     let cards = self.cards.take();
-    println!("Cards are {:?}", cards);
-    println!("selected card {}", selected_card);
     let chosen_card = cards.get(selected_card).unwrap();
     let filtered_cards = cards.iter().enumerate().filter(|(index, element)| {
        *index != card_index
@@ -36,6 +33,12 @@ impl Hand {
     unsafe {
         (*cards).remove(card_index)
     }*/
+  }
+
+  pub fn get_hand_ref(&self) -> Vec<card::Card> {
+    let cards = self.cards.take();
+    self.cards.set(cards.clone());
+    cards
   }
 
   pub fn get_hand(&self) -> Vec<card::Card> {

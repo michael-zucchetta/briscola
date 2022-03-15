@@ -11,7 +11,8 @@ fn main() {
     let deck = deck::Deck::new();
     let game = game::Game::new(
        game::PlayersSize::Two,
-       game::GameMode::AIvsAI,
+       // game::GameMode::AIVsAI,
+       game::GameMode::PlayerVsAI,
        console::ConsolePainter::new(),
        console::Console::new()
     );

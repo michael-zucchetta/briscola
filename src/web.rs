@@ -17,6 +17,26 @@ fn from_card_to_url(card: card::Card) -> String {
     [imagesPath, "/",card.suit.to_string(), "/", card.value.to_string(), ".svg"].concat()
 }
 
+fn generate_svg(document: &Document, path: &String) -> SvgElement {
+    // image original size
+    const width: usize = 170usize;
+    const height: usize = 340usize;
+    let svg = document.create_element_ns(Some("http://www.w3.org/2000/svg"), "svg").unwrap()
+         .dyn_into::<web_sys::SvgElement>()
+         .map_err(|_| ())
+         .unwrap();
+    svg.set_attribute("width", &width.to_string()).unwrap();
+    svg.set_attribute("height", &height.to_string()).unwrap();
+    svg.set_attribute("viewBox", &format!("0 0 {width} {height}")).unwrap();
+    let svgImage = document.create_element_ns(Some("http://www.w3.org/2000/svg"), "image").unwrap()
+         .dyn_into::<web_sys::SvgImageElement>()
+         .map_err(|_| ())
+         .unwrap();
+    svgImage.set_attribute_ns(Some("http://www.w3.org/1999/xlink"), "xlink:href", &path);
+    svg.append_child(&svgImage).unwrap();
+    return svg;
+}
+
 // change display with draw and use fmt in console
 // https://doc.rust-lang.org/reference/conditional-compilation.html
 /*impl fmt::Display for card::Card {
@@ -104,7 +124,7 @@ pub fn main() {
     div.append_child(&canvas).unwrap();
     body.append_child(&div).unwrap();
     let image = ImageFuture::new("/assets/briscola/bresciane/batons/02.svg");
-    let svg = document.create_element_ns(Some("http://www.w3.org/2000/svg"), "svg").unwrap()
+    /*let svg = document.create_element_ns(Some("http://www.w3.org/2000/svg"), "svg").unwrap()
          .dyn_into::<web_sys::SvgElement>()
          .map_err(|_| ())
          .unwrap();
@@ -114,9 +134,10 @@ pub fn main() {
     let svgImage = document.create_element_ns(Some("http://www.w3.org/2000/svg"), "image").unwrap()
          .dyn_into::<web_sys::SvgImageElement>()
          .map_err(|_| ())
-         .unwrap();
+         .unwrap();*/
     let card = card::Card::new( card::CardNumber::Two, card::CardSuit::Cups);
-    svgImage.set_attribute_ns(Some("http://www.w3.org/1999/xlink"), "xlink:href", &from_card_to_url(card));
+    let svg = generate_svg(&document, &from_card_to_url(card));
+    // svgImage.set_attribute_ns(Some("http://www.w3.org/1999/xlink"), "xlink:href", &from_card_to_url(card));
     let context = canvas
         .get_context("2d")
         .unwrap()
@@ -124,14 +145,14 @@ pub fn main() {
         .dyn_into::<web_sys::CanvasRenderingContext2d>()
         .unwrap();
     context.set_image_smoothing_enabled(true);
-    svg.append_child(&svgImage).unwrap();
+    // svg.append_child(&svgImage).unwrap();
     // should use this context.draw_image_with_svg_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     /*
 Try calling the drawImage function inside the image's load function to ensure that the image is actually loaded before trying to draw it.
 internal_image.addEventListener("load", function() {
   context.drawImage(internal_image, 10, 10);
 }, false);*/
-    context.draw_image_with_svg_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
+    /*context.draw_image_with_svg_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     // context.draw_image_with_html_image_element_and_sw_and_sh_and_dx_and_dy_and_dw_and_dh(
     // &image.image.unwrap(),
     &svgImage,
@@ -143,7 +164,7 @@ internal_image.addEventListener("load", function() {
     0f64,
     2f64 * 170f64,
     2f64 * 340f64 
-    ).unwrap();
+    ).unwrap();*/
     let div2 = document.create_element("div").unwrap();
     div2.append_child(&svg).unwrap();
     body.append_child(&div2).unwrap();

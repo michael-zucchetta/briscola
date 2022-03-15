@@ -11,5 +11,13 @@ pub trait Painter {
 
     // fn draw_hands(hand1: hand::Hand, hand2::Hand);
 
+    fn print_cards(hand: hand::Hand);
+
     fn update_game();
+
+    fn player_played_card(card: card::Card, player: usize);
+
+    fn player_won(player: usize, cards: &Vec<card::Card>);
+
+    fn player_scores(score1: u8, score2: u8);
 }

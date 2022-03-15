@@ -46,6 +46,23 @@ impl painter::Painter for ConsolePainter {
 
     fn update_game() {
     }
+
+    fn print_cards(hand: hand::Hand) {
+       println!("User hand is {:?}", hand.get_hand_ref());
+    }
+
+    fn player_played_card(card: card::Card, player: usize) {
+       println!("Card played by player {} is {}", player, card);
+    }
+
+    fn player_won(player: usize, cards: &Vec<card::Card>) {
+      println!("Player {} won turn, and won these cards {:?}", player, cards);
+    }
+
+    fn player_scores(score1: u8, score2: u8) {
+        println!("Player 1 score is {}", score1);
+        println!("Player 2 score is {}", score2);
+    }
 }
 
 impl fmt::Display for card::Card  {
@@ -82,12 +99,24 @@ impl Console {
 }
 
 impl game::UserInput for Console {
-    fn user_input(&self) -> usize {
+    fn user_input(&self, hand: &hand::Hand) -> usize {
         let mut command_as_text = string::String::new();
-        println!("selecting move");
+        let hand_size = hand.size();
+        println!("selecting move. press p to print hand");
         io::stdin().read_line(&mut command_as_text);
-        println!("selecting move");
-        command_as_text.parse::<usize>().unwrap()
+        let selected_move = command_as_text.trim();
+        if selected_move == "p" {
+           println!("User hand is {:?}", hand.get_hand_ref());
+           return self.user_input(hand)
+        }
+        println!("selected move {}", selected_move);
+        let chosen_card = selected_move.parse().unwrap();
+        if chosen_card < hand_size {
+            chosen_card
+        } else {
+            println!("Selected move, {}, is wrong as hand size is {}", chosen_card, hand_size);
+            self.user_input(hand)
+        }
     }
 }
 
