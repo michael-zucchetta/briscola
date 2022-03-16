@@ -74,6 +74,28 @@ impl WebPainter {
         (value, suit_as_string, color)
     }
 
+    fn generate_svg(&self, path: &String) -> SvgElement {
+	// image original size
+	const width: usize = 170usize;
+	const height: usize = 340usize;
+	let svg = self.document.create_element_ns(Some("http://www.w3.org/2000/svg"), "svg").unwrap()
+	     .dyn_into::<web_sys::SvgElement>()
+	     .map_err(|_| ())
+	     .unwrap();
+	svg.set_attribute("width", &width.to_string()).unwrap();
+	svg.set_attribute("height", &height.to_string()).unwrap();
+	svg.set_attribute("viewBox", &format!("0 0 {width} {height}")).unwrap();
+	let svgImage = self.document.create_element_ns(Some("http://www.w3.org/2000/svg"), "image").unwrap()
+	     .dyn_into::<web_sys::SvgImageElement>()
+	     .map_err(|_| ())
+	     .unwrap();
+	svgImage.set_attribute_ns(Some("http://www.w3.org/1999/xlink"), "xlink:href", &path);
+	svg.append_child(&svgImage).unwrap();
+	return svg;
+    }
+
+
+
     pub fn new() -> WebPainter {
         let document = web_sys::window().unwrap().document().unwrap();
         let player1CardsAreaDiv = create_div("player1area", &document);
@@ -81,8 +103,8 @@ impl WebPainter {
         let playingAreaContainerDiv = create_div("playing-area", &document);
         let playedCardsAreaDiv = create_div("played-cards-area", &document);
         let deckAreaDiv = create_div("deck-area", &document);
-        deckAreaDiv.append_child(&playedCardsAreaDiv).unwrap();
-        deckAreaDiv.append_child(&playingAreaContainerDiv).unwrap();
+        playingAreaContainerDiv.append_child(&playedCardsAreaDiv).unwrap();
+        playingAreaContainerDiv.append_child(&deckAreaDiv).unwrap();
 
         let body = document.body().expect("document should have a body");
         body.append_child(&player1CardsAreaDiv).unwrap();
@@ -104,9 +126,12 @@ impl painter::Painter for WebPainter {
         log!("{} {}", value, color.bold().paint(suit));
     }
 
-    fn draw_beginning(deck: &deck::Deck) {
+    fn draw_beginning(&self, deck: &deck::Deck) {
       log!("Beginning game");
-      log!("Briscola is {}", deck.get_briscola());
+      let briscola = deck.get_briscola();
+      log!("Briscola is {}", briscola);
+      let svg = self.generate_svg(&from_card_to_url(briscola));
+      self.deckAreaDiv.append_child(&svg).unwrap();
     }
 
     fn update_game() {
@@ -281,4 +306,13 @@ internal_image.addEventListener("load", function() {
     // yew::start_app::<App>();
     //
     let webPainter = WebPainter::new();
+    let web = Web::new();
+    let game = game::Game::new(
+       game::PlayersSize::Two,
+       game::GameMode::PlayerVsAI,
+       webPainter,
+       web,
+    );
+    let player_won = game.game();
+    println!("Player {} won", player_won);
 }

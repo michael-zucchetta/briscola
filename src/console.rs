@@ -40,7 +40,7 @@ impl painter::Painter for ConsolePainter {
         println!("{} {}", value, color.bold().paint(suit));
     }
 
-    fn draw_beginning(deck: &deck::Deck) {
+    fn draw_beginning(&self, deck: &deck::Deck) {
       println!("Beginning game");
       println!("Briscola is {}", deck.get_briscola());
     }
