@@ -27,6 +27,10 @@ impl Deck {
         self.cards.borrow().len() == 0
     }
 
+    pub fn size(&self) -> usize {
+        self.cards.borrow().len()
+    }
+
     fn shuffle_deck(cards: &mut Vec<card::Card>) {
         cards.shuffle(&mut rand::thread_rng());
     }

@@ -25,11 +25,12 @@ macro_rules! log {
 }
 
 const imagesPath: &str = "/assets/briscola/bresciane";
+const retro_image_path: &str = "./assets/briscola/bresciane/retro.svg";
 fn from_card_to_url(card: card::Card) -> String {
     [imagesPath, "/",card.suit.to_string(), "/", card.value.to_string(), ".svg"].concat()
 }
 
-fn generate_svg(document: &Document, path: &String) -> SvgElement {
+fn generate_svg(document: &Document, path: &str, id: Option<&str>) -> SvgElement {
     // image original size
     const width: usize = 170usize;
     const height: usize = 340usize;
@@ -54,7 +55,7 @@ pub struct WebPainter {
   player1CardsAreaDiv: Element,
   player2CardsAreaDiv: Element,
   playedCardsAreaDiv: Element,
-  deckAreaDiv: Element
+  deck_area_div: Element
 }
 fn create_div(id_name: &str, document: &Document) -> Element {
   let div = document.create_element("div").unwrap();
@@ -74,7 +75,7 @@ impl WebPainter {
         (value, suit_as_string, color)
     }
 
-    fn generate_svg(&self, path: &String) -> SvgElement {
+    fn generate_svg(&self, path: &str, id: Option<&str>) -> SvgElement {
 	// image original size
 	const width: usize = 170usize;
 	const height: usize = 340usize;
@@ -102,20 +103,20 @@ impl WebPainter {
         let player2CardsAreaDiv = create_div("player2area", &document);
         let playingAreaContainerDiv = create_div("playing-area", &document);
         let playedCardsAreaDiv = create_div("played-cards-area", &document);
-        let deckAreaDiv = create_div("deck-area", &document);
+        let deck_area_div = create_div("deck-area", &document);
         playingAreaContainerDiv.append_child(&playedCardsAreaDiv).unwrap();
-        playingAreaContainerDiv.append_child(&deckAreaDiv).unwrap();
+        playingAreaContainerDiv.append_child(&deck_area_div).unwrap();
 
         let body = document.body().expect("document should have a body");
         body.append_child(&player1CardsAreaDiv).unwrap();
-        body.append_child(&deckAreaDiv).unwrap();
+        body.append_child(&deck_area_div).unwrap();
         body.append_child(&player2CardsAreaDiv).unwrap();
         WebPainter {
             document: document,
             player1CardsAreaDiv: player1CardsAreaDiv,
             player2CardsAreaDiv: player2CardsAreaDiv,
             playedCardsAreaDiv: playedCardsAreaDiv,
-            deckAreaDiv: deckAreaDiv
+            deck_area_div: deck_area_div
         }
     }
 }
@@ -130,8 +131,16 @@ impl painter::Painter for WebPainter {
       log!("Beginning game");
       let briscola = deck.get_briscola();
       log!("Briscola is {}", briscola);
-      let svg = self.generate_svg(&from_card_to_url(briscola));
-      self.deckAreaDiv.append_child(&svg).unwrap();
+      let svg = self.generate_svg(&from_card_to_url(briscola), Some("id"));
+      self.deck_area_div.append_child(&svg).unwrap();
+      log!("Deck Size is {}, {}", deck.size(), deck.size());
+      for i in 0..deck.size() {
+          // this has to stay here
+          let retro_svg = self.generate_svg(retro_image_path, None);
+          log!("GOgo");
+          self.deck_area_div.append_child(&retro_svg).unwrap();
+      }
+      log!("GOgo22"); 
     }
 
     fn update_game() {
@@ -258,7 +267,7 @@ pub fn main() {
     let div = document.create_element("div").unwrap();
     div.append_child(&canvas).unwrap();
     body.append_child(&div).unwrap();
-    let image = ImageFuture::new("/assets/briscola/bresciane/batons/02.svg");
+    // let image = ImageFuture::new("/assets/briscola/bresciane/retro.svg");
     /*let svg = document.create_element_ns(Some("http://www.w3.org/2000/svg"), "svg").unwrap()
          .dyn_into::<web_sys::SvgElement>()
          .map_err(|_| ())
@@ -271,7 +280,7 @@ pub fn main() {
          .map_err(|_| ())
          .unwrap();*/
     let card = card::Card::new( card::CardNumber::Two, card::CardSuit::Cups);
-    let svg = generate_svg(&document, &from_card_to_url(card));
+    let svg = generate_svg(&document, &retro_image_path, None);//&from_card_to_url(card));
     // svgImage.set_attribute_ns(Some("http://www.w3.org/1999/xlink"), "xlink:href", &from_card_to_url(card));
     let context = canvas
         .get_context("2d")
