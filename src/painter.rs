@@ -11,7 +11,7 @@ pub trait Painter {
 
     // fn draw_hands(hand1: hand::Hand, hand2::Hand);
 
-    fn print_cards(hand: hand::Hand);
+    fn print_cards(hand: hand::Hand, player: usize);
 
     fn update_game();
 

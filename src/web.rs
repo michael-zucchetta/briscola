@@ -50,10 +50,16 @@ fn generate_svg(document: &Document, path: &String) -> SvgElement {
 }
 
 pub struct WebPainter {
-  player1CardsAreaDiv: Element
-  player2CardsAreaDiv: Element
-  playedCardsArea: Element
-  deckArea: Element 
+  document: Document,
+  player1CardsAreaDiv: Element,
+  player2CardsAreaDiv: Element,
+  playedCardsAreaDiv: Element,
+  deckAreaDiv: Element
+}
+fn create_div(id_name: &str, document: &Document) -> Element {
+  let div = document.create_element("div").unwrap();
+  div.set_id(id_name);
+  div
 }
 
 impl WebPainter {
@@ -67,8 +73,28 @@ impl WebPainter {
         let value = card.value.eval();
         (value, suit_as_string, color)
     }
+
     pub fn new() -> WebPainter {
-       WebPainter {} 
+        let document = web_sys::window().unwrap().document().unwrap();
+        let player1CardsAreaDiv = create_div("player1area", &document);
+        let player2CardsAreaDiv = create_div("player2area", &document);
+        let playingAreaContainerDiv = create_div("playing-area", &document);
+        let playedCardsAreaDiv = create_div("played-cards-area", &document);
+        let deckAreaDiv = create_div("deck-area", &document);
+        deckAreaDiv.append_child(&playedCardsAreaDiv).unwrap();
+        deckAreaDiv.append_child(&playingAreaContainerDiv).unwrap();
+
+        let body = document.body().expect("document should have a body");
+        body.append_child(&player1CardsAreaDiv).unwrap();
+        body.append_child(&deckAreaDiv).unwrap();
+        body.append_child(&player2CardsAreaDiv).unwrap();
+        WebPainter {
+            document: document,
+            player1CardsAreaDiv: player1CardsAreaDiv,
+            player2CardsAreaDiv: player2CardsAreaDiv,
+            playedCardsAreaDiv: playedCardsAreaDiv,
+            deckAreaDiv: deckAreaDiv
+        }
     }
 }
 
@@ -85,7 +111,7 @@ impl painter::Painter for WebPainter {
 
     fn update_game() {
     }
-    fn print_cards(hand: hand::Hand) {
+    fn print_cards(hand: hand::Hand, player: usize) {
        log!("User hand is {:?}", hand.get_hand_ref());
     }
 
@@ -105,13 +131,12 @@ impl painter::Painter for WebPainter {
 
 #[derive(Clone)]
 pub struct Web {
-
 }
 
 impl Web {
 
   pub fn new() -> Web {
-    Web {}
+      Web { }
   }
 }
 
@@ -199,6 +224,7 @@ impl Future for ImageFuture {
     }
 }
 
+
 pub fn main() {
     let document = web_sys::window().unwrap().document().unwrap();
     let body = document.body().expect("document should have a body");
@@ -247,11 +273,12 @@ internal_image.addEventListener("load", function() {
     0f64,
     0f64,
     2f64 * 170f64,
-    2f64 * 340f64 
+    2f64 * 340f64
     ).unwrap();*/
     let div2 = document.create_element("div").unwrap();
     div2.append_child(&svg).unwrap();
     body.append_child(&div2).unwrap();
     // yew::start_app::<App>();
+    //
+    let webPainter = WebPainter::new();
 }
-

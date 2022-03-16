@@ -12,8 +12,8 @@ use std::io;
 use std::string;
 
 pub struct ConsolePainter {
+  game_mode: game::GameMode
 }
-
 
 impl ConsolePainter {
     fn get_card(card: card::Card) -> (u8, &'static str, Colour) {
@@ -27,8 +27,9 @@ impl ConsolePainter {
         (value, suit_as_string, color)
     }
 
-    pub fn new() -> ConsolePainter {
+    pub fn new(game_mode: game::GameMode) -> ConsolePainter {
        ConsolePainter {
+           game_mode: game_mode,
        }
     }
 }
@@ -47,7 +48,7 @@ impl painter::Painter for ConsolePainter {
     fn update_game() {
     }
 
-    fn print_cards(hand: hand::Hand) {
+    fn print_cards(hand: hand::Hand, player: usize) {
        println!("User hand is {:?}", hand.get_hand_ref());
     }
 

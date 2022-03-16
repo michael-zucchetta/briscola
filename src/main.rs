@@ -21,13 +21,13 @@ fn hello() {
 
 pub fn main() {
     println!("OHI");
-    hello(); 
+    hello();
     #[cfg(not(target_arch = "wasm32"))]
     let game = game::Game::new(
        game::PlayersSize::Two,
        // game::GameMode::AIVsAI,
        game::GameMode::PlayerVsAI,
-       console::ConsolePainter::new(),
+       console::ConsolePainter::new(game::GameMode::PlayerVsAI),
        console::Console::new()
     );
     #[cfg(not(target_arch = "wasm32"))]

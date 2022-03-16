@@ -178,6 +178,6 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
     }
 }
 
-pub trait UserInput: Send + Clone {
+pub trait UserInput: Clone {
     fn user_input(&self, hand: &hand::Hand) -> usize;
 }
