@@ -55,7 +55,8 @@ pub struct WebPainter {
   player1CardsAreaDiv: Element,
   player2CardsAreaDiv: Element,
   playedCardsAreaDiv: Element,
-  deck_area_div: Element
+  deckAreaBriscola: Element,
+  deckAreaCards: Element
 }
 fn create_div(id_name: &str, document: &Document) -> Element {
   let div = document.create_element("div").unwrap();
@@ -99,24 +100,29 @@ impl WebPainter {
 
     pub fn new() -> WebPainter {
         let document = web_sys::window().unwrap().document().unwrap();
-        let player1CardsAreaDiv = create_div("player1area", &document);
-        let player2CardsAreaDiv = create_div("player2area", &document);
+        let player1CardsAreaDiv = create_div("player-1-area", &document);
+        let player2CardsAreaDiv = create_div("player-2-area", &document);
         let playingAreaContainerDiv = create_div("playing-area", &document);
         let playedCardsAreaDiv = create_div("played-cards-area", &document);
-        let deck_area_div = create_div("deck-area", &document);
+        let deckAreaDiv = create_div("deck-area", &document);
+        let deckAreaBriscola = create_div("deck-briscola-area", &document);
+        let deckAreaCards = create_div("deck-cards-area", &document);
+        deckAreaDiv.append_child(&deckAreaBriscola).unwrap();
+        deckAreaDiv.append_child(&deckAreaCards).unwrap();
         playingAreaContainerDiv.append_child(&playedCardsAreaDiv).unwrap();
-        playingAreaContainerDiv.append_child(&deck_area_div).unwrap();
+        playingAreaContainerDiv.append_child(&deckAreaDiv).unwrap();
 
         let body = document.body().expect("document should have a body");
         body.append_child(&player1CardsAreaDiv).unwrap();
-        body.append_child(&deck_area_div).unwrap();
+        body.append_child(&playingAreaContainerDiv).unwrap();
         body.append_child(&player2CardsAreaDiv).unwrap();
         WebPainter {
             document: document,
             player1CardsAreaDiv: player1CardsAreaDiv,
             player2CardsAreaDiv: player2CardsAreaDiv,
             playedCardsAreaDiv: playedCardsAreaDiv,
-            deck_area_div: deck_area_div
+            deckAreaCards: deckAreaCards,
+            deckAreaBriscola: deckAreaBriscola
         }
     }
 }
@@ -131,14 +137,16 @@ impl painter::Painter for WebPainter {
       log!("Beginning game");
       let briscola = deck.get_briscola();
       log!("Briscola is {}", briscola);
-      let svg = self.generate_svg(&from_card_to_url(briscola), Some("id"));
-      self.deck_area_div.append_child(&svg).unwrap();
+      let briscola_svg = self.generate_svg(&from_card_to_url(briscola), Some("id"));
+      self.deckAreaBriscola.append_child(&briscola_svg).unwrap();
       log!("Deck Size is {}, {}", deck.size(), deck.size());
       for i in 0..deck.size() {
           // this has to stay here
           let retro_svg = self.generate_svg(retro_image_path, None);
           log!("GOgo");
-          self.deck_area_div.append_child(&retro_svg).unwrap();
+          let div = create_div("", &self.document);
+          self.deckAreaCards.append_child(&div).unwrap();
+          div.append_child(&retro_svg);
       }
       log!("GOgo22"); 
     }

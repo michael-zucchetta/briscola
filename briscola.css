@@ -1,0 +1,11 @@
+#deck-cards-area {
+  margin-left: 169.5px;
+  margin-top: 0.5px;
+}
+#deck-cards-area svg {
+  margin-left: -169.5px;
+  /* margin-top: -225px; */
+}
+#deck-cards-area div {
+  height: 0.5px;
+}
