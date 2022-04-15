@@ -9,3 +9,11 @@
 #deck-cards-area div {
   height: 0.5px;
 }
+#playing-area #played-cards-area {
+  display: inline-block;
+  width: 80%;
+}
+#playing-area #deck-area {
+  display: inline-block;
+  width: 20%;
+}

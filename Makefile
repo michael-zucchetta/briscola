@@ -6,5 +6,6 @@
 #
 build:
 	wasm-pack build --target web --out-name wasm --out-dir ./static
+	cd ./static && ln -s ../assets && ln -s ../briscola.css
 	miniserve ./static --index ../index.html
 

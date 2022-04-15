@@ -15,7 +15,7 @@ pub mod console;
 
 #[cfg(target_arch = "wasm32")]
 pub mod web;
-
+/*
 struct Model {
     link: ComponentLink<Self>,
     value: i64,
@@ -58,7 +58,7 @@ impl Component for Model {
         }
     }
 }
-
+*/
 fn create_canvas(document: &Document) -> HtmlCanvasElement {
     let canvas = HtmlCanvasElement::from(JsValue::from(document.create_element("canvas").unwrap()));
     canvas.set_width(100);
@@ -74,8 +74,8 @@ fn create_canvas(document: &Document) -> HtmlCanvasElement {
 #[wasm_bindgen(start)]
 #[cfg(target_arch = "wasm32")]
 pub fn run_app() {
-    let app = App::<Model>::new();
-    app.mount_to_body();
+    // let app = App::<Model>::new();
+    // app.mount_to_body();
     let document = web_sys::window().unwrap().document().unwrap();
     let body = document.body().expect("document should have a body");
 

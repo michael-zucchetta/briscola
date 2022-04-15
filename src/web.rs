@@ -24,6 +24,10 @@ macro_rules! log {
     }
 }
 
+struct SvgHandCard {
+  card: Option<card::Card>,
+}
+
 const imagesPath: &str = "/assets/briscola/bresciane";
 const retro_image_path: &str = "./assets/briscola/bresciane/retro.svg";
 fn from_card_to_url(card: card::Card) -> String {
@@ -50,6 +54,8 @@ fn generate_svg(document: &Document, path: &str, id: Option<&str>) -> SvgElement
     return svg;
 }
 
+
+
 pub struct WebPainter {
   document: Document,
   player1CardsAreaDiv: Element,
@@ -58,11 +64,53 @@ pub struct WebPainter {
   deckAreaBriscola: Element,
   deckAreaCards: Element
 }
+
 fn create_div(id_name: &str, document: &Document) -> Element {
   let div = document.create_element("div").unwrap();
   div.set_id(id_name);
   div
 }
+
+impl Component for SvgHandCard {
+    type Properties = ();
+    type Message = ();//card::Card;
+
+    fn create(_ctx: &yew::Context<Self>) -> Self {
+        Self {
+            card: None,
+        }
+    }
+/*
+    fn update(&mut self, card: card::Card) -> ShouldRender {
+        /*match msg {
+            Msg::AddOne => self.value += 1
+        }*/
+        true
+    }
+
+    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
+        log!("{}", "ciccio"); 
+        // Should only return "true" if new properties are different to
+        // previously received properties.
+        // This component has no properties so we will always return "false".
+        false
+    }
+*/
+    fn view(&self, _ctx: &yew::Context<Self>) -> Html {
+        const width: usize = 170usize;
+        const height: usize = 340usize;
+        let click_callback = _ctx.link().callback(|_| {
+            log!("ciao");
+        });
+        let image = "/assets/briscola/bresciane/batons/06.svg";
+        html! {
+            <svg width=170 height=340 onclick={click_callback}>
+            <image href={ image }></image>
+            </svg>
+        }
+    }
+}
+
 
 impl WebPainter {
     fn get_card(card: card::Card) -> (u8, &'static str, Colour) {
@@ -148,7 +196,7 @@ impl painter::Painter for WebPainter {
           self.deckAreaCards.append_child(&div).unwrap();
           div.append_child(&retro_svg);
       }
-      log!("GOgo22"); 
+      log!("GOgo22");
     }
 
     fn update_game() {
@@ -271,6 +319,9 @@ pub fn main() {
     let document = web_sys::window().unwrap().document().unwrap();
     let body = document.body().expect("document should have a body");
     log!("Ciccio");
+    // let app = App::<SvgHandCard>::new();
+    // app.mount_to_body();
+    yew::start_app::<SvgHandCard>();
     let canvas = create_canvas(&document);
     let div = document.create_element("div").unwrap();
     div.append_child(&canvas).unwrap();
