@@ -71,47 +71,6 @@ fn create_div(id_name: &str, document: &Document) -> Element {
   div
 }
 
-impl Component for SvgHandCard {
-    type Properties = ();
-    type Message = ();//card::Card;
-
-    fn create(_ctx: &yew::Context<Self>) -> Self {
-        Self {
-            card: None,
-        }
-    }
-/*
-    fn update(&mut self, card: card::Card) -> ShouldRender {
-        /*match msg {
-            Msg::AddOne => self.value += 1
-        }*/
-        true
-    }
-
-    fn change(&mut self, _props: Self::Properties) -> ShouldRender {
-        log!("{}", "ciccio"); 
-        // Should only return "true" if new properties are different to
-        // previously received properties.
-        // This component has no properties so we will always return "false".
-        false
-    }
-*/
-    fn view(&self, _ctx: &yew::Context<Self>) -> Html {
-        const width: usize = 170usize;
-        const height: usize = 340usize;
-        let click_callback = _ctx.link().callback(|_| {
-            log!("ciao");
-        });
-        let image = "/assets/briscola/bresciane/batons/06.svg";
-        html! {
-            <svg width=170 height=340 onclick={click_callback}>
-            <image href={ image }></image>
-            </svg>
-        }
-    }
-}
-
-
 impl WebPainter {
     fn get_card(card: card::Card) -> (u8, &'static str, Colour) {
         let (color, suit_as_string) = match card.suit {
@@ -143,8 +102,6 @@ impl WebPainter {
 	svg.append_child(&svgImage).unwrap();
 	return svg;
     }
-
-
 
     pub fn new() -> WebPainter {
         let document = web_sys::window().unwrap().document().unwrap();
@@ -201,8 +158,20 @@ impl painter::Painter for WebPainter {
 
     fn update_game() {
     }
-    fn print_cards(hand: hand::Hand, player: usize) {
-       log!("User hand is {:?}", hand.get_hand_ref());
+    fn print_cards(&self, hand: &hand::Hand, player: usize) {
+       let div_container = if player == 0 {
+           &self.player1CardsAreaDiv
+       } else {
+           &self.player2CardsAreaDiv
+       };
+       for card in hand.get_hand() {
+          let card_svg = self.generate_svg(&from_card_to_url(card), Some("id1"));
+          let f = Closure::wrap(Box::new(move || {  log!("hello"); }) as Box<dyn FnMut()>);
+          card_svg.set_onclick(Some(f.as_ref().unchecked_ref()));
+          f.forget();
+          div_container.append_child(&card_svg).unwrap();
+       }
+       log!("User 2 hand is {:?}", hand.get_hand_ref());
     }
 
     fn player_played_card(card: card::Card, player: usize) {
@@ -318,10 +287,9 @@ impl Future for ImageFuture {
 pub fn main() {
     let document = web_sys::window().unwrap().document().unwrap();
     let body = document.body().expect("document should have a body");
-    log!("Ciccio");
+    // log!("Ciccio");
     // let app = App::<SvgHandCard>::new();
     // app.mount_to_body();
-    yew::start_app::<SvgHandCard>();
     let canvas = create_canvas(&document);
     let div = document.create_element("div").unwrap();
     div.append_child(&canvas).unwrap();

@@ -123,6 +123,8 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
 
     pub fn turn(&self, initial: bool) {
         self.assign_cards(initial);
+        // should change based on game and players
+        self.painter.print_cards(self.players.get(0).unwrap().get_hand(), 0usize);
         let last_turn = self.deck.is_deck_empty();
         let plays_size = if last_turn {
           3usize

@@ -48,7 +48,7 @@ impl painter::Painter for ConsolePainter {
     fn update_game() {
     }
 
-    fn print_cards(hand: hand::Hand, player: usize) {
+    fn print_cards(&self, hand: &hand::Hand, player: usize) {
        println!("User hand is {:?}", hand.get_hand_ref());
     }
 
@@ -107,6 +107,7 @@ impl game::UserInput for Console {
         io::stdin().read_line(&mut command_as_text);
         let selected_move = command_as_text.trim();
         if selected_move == "p" {
+           // to change print cards
            println!("User hand is {:?}", hand.get_hand_ref());
            return self.user_input(hand)
         }

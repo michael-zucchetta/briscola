@@ -45,6 +45,10 @@ impl <T> Player <T> where T: game::UserInput {
         self.hand.select_card(selected_card)
     }
 
+    pub fn get_hand(&self) -> &hand::Hand {
+        &self.hand
+    }
+
     pub fn play_card(&self) -> card::Card {
       let selected = if self.player_type == PlayerType::AI {
           let hand_size = self.hand.size();
