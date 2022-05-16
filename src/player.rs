@@ -18,15 +18,17 @@ pub struct Player<T: game::UserInput>  {
     player_type: PlayerType,
     hand: hand::Hand,
     cards_won: Cell<Vec<card::Card>>,
+    pub playing_order: usize,
     input_handler: T
 }
 
 impl <T> Player <T> where T: game::UserInput {
-    pub fn new(player_type: PlayerType, user_input: T) -> Player<T> {
+    pub fn new(player_type: PlayerType, playing_order: usize, user_input: T) -> Player<T> {
 	Player {
 	    player_type: player_type,
 	    hand: hand::Hand::new(),
 	    cards_won: Cell::new(vec![]),
+            playing_order: playing_order,
             input_handler: user_input,
 	}
     }
@@ -35,7 +37,7 @@ impl <T> Player <T> where T: game::UserInput {
 	self.hand.assign_cards(cards);
     }
 
-    pub fn add_card_to_hand(&self, card: card::Card) { 
+    pub fn add_card_to_hand(&self, card: card::Card) {
         let mut cards = self.hand.get_hand();
         cards.push(card);
         self.assign_cards(cards);

@@ -2,16 +2,17 @@ use ansi_term::Colour::{Yellow, Purple, Green, Blue};
 
 use crate::card;
 use crate::deck;
-use crate::hand;
+use crate::game;
+use crate::player;
 
-pub trait Painter {
+pub trait Painter<Y: game::UserInput> {
     fn print_card(card: card::Card);
 
     fn draw_beginning(&self, deck: &deck::Deck);
 
     // fn draw_hands(hand1: hand::Hand, hand2::Hand);
 
-    fn print_cards(&self, hand: &hand::Hand, player: usize);
+    fn print_cards(&self, player: &player::Player<Y>);
 
     fn update_game();
 

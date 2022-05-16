@@ -36,7 +36,7 @@ pub enum PlayerTurn {
     // Player4,
 }
 
-pub struct Game<T: painter::Painter, Y: game::UserInput> {
+pub struct Game<T: painter::Painter<Y>, Y: game::UserInput> {
     deck: deck::Deck,
     briscola: card::Card,
     players: [player::Player<Y>; 2],
@@ -46,27 +46,28 @@ pub struct Game<T: painter::Painter, Y: game::UserInput> {
     painter: T
 }
 
-impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
+impl<T, Y> Game<T, Y> where T: painter::Painter<Y>, Y: game::UserInput {
 
     pub fn new(players_size: PlayersSize, game_mode: GameMode, painter: T, user_input: Y) -> Game<T, Y> {
         let deck = deck::Deck::new();
+        // TODO: set let starting_player = ``  
         // TODO: change to have multiple players (two or four)
         let players = match players_size {
             PlayersSize::Two =>
                 match game_mode {
                     GameMode::AIVsAI => {
                         [
-                            player::Player::new(player::PlayerType::AI, user_input.clone()),
-                            player::Player::new(player::PlayerType::AI, user_input)
+                            player::Player::new(player::PlayerType::AI, 0usize, user_input.clone()),
+                            player::Player::new(player::PlayerType::AI, 1usize, user_input)
                         ]
                     },
                     GameMode::PlayerVsAI => {
-                        [player::Player::new(player::PlayerType::Player, user_input.clone()),
-                        player::Player::new(player::PlayerType::AI, user_input)]
+                        [player::Player::new(player::PlayerType::Player, 0usize, user_input.clone()),
+                        player::Player::new(player::PlayerType::AI, 1usize, user_input)]
                     },
                     GameMode::PlayerVsPlayer => {
-                        [player::Player::new(player::PlayerType::Player, user_input.clone()),
-                        player::Player::new(player::PlayerType::Player, user_input)]
+                        [player::Player::new(player::PlayerType::Player, 0usize, user_input.clone()),
+                        player::Player::new(player::PlayerType::Player, 1usize, user_input)]
                     },
                 }
             //PlayersSize::Four =>
@@ -123,8 +124,11 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
 
     pub fn turn(&self, initial: bool) {
         self.assign_cards(initial);
+        let player1 = self.players.get(0).unwrap();
+        let player2 = self.players.get(1).unwrap();
         // should change based on game and players
-        self.painter.print_cards(self.players.get(0).unwrap().get_hand(), 0usize);
+        self.painter.print_cards(player1); //.get_hand(), 0usize, player1.user_input);
+        self.painter.print_cards(player2); //.unwrap().get_hand(), 1usize, player2.user_input);
         let last_turn = self.deck.is_deck_empty();
         let plays_size = if last_turn {
           3usize

@@ -1,6 +1,7 @@
 #deck-cards-area {
   margin-left: 169.5px;
   margin-top: 0.5px;
+  display: inline-flex;
 }
 #deck-cards-area svg {
   margin-left: -169.5px;
@@ -11,9 +12,12 @@
 }
 #playing-area #played-cards-area {
   display: inline-block;
-  width: 80%;
+  width: 70%;
 }
 #playing-area #deck-area {
-  display: inline-block;
-  width: 20%;
+  display: flex; 
+  justify-content: flex-end;
+}
+#deck-area {
+  display: flex;
 }

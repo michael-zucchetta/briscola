@@ -3,6 +3,7 @@ use crate::hand;
 use crate::deck;
 use crate::game;
 use crate::painter;
+use crate::player;
 use ansi_term::Colour::{Yellow, Red, Green, Blue};
 use ansi_term::Colour;
 
@@ -30,7 +31,7 @@ struct SvgHandCard {
 
 const imagesPath: &str = "/assets/briscola/bresciane";
 const retro_image_path: &str = "./assets/briscola/bresciane/retro.svg";
-fn from_card_to_url(card: card::Card) -> String {
+fn from_card_to_url(card: &card::Card) -> String {
     [imagesPath, "/",card.suit.to_string(), "/", card.value.to_string(), ".svg"].concat()
 }
 
@@ -132,7 +133,7 @@ impl WebPainter {
     }
 }
 
-impl painter::Painter for WebPainter {
+impl<Y> painter::Painter<Y> for WebPainter where Y: game::UserInput {
     fn print_card(card: card::Card) {
         let (value, suit, color) = WebPainter::get_card(card);
         log!("{} {}", value, color.bold().paint(suit));
@@ -142,7 +143,7 @@ impl painter::Painter for WebPainter {
       log!("Beginning game");
       let briscola = deck.get_briscola();
       log!("Briscola is {}", briscola);
-      let briscola_svg = self.generate_svg(&from_card_to_url(briscola), Some("id"));
+      let briscola_svg = self.generate_svg(&from_card_to_url(&briscola), Some("id"));
       self.deckAreaBriscola.append_child(&briscola_svg).unwrap();
       log!("Deck Size is {}, {}", deck.size(), deck.size());
       for i in 0..deck.size() {
@@ -158,15 +159,18 @@ impl painter::Painter for WebPainter {
 
     fn update_game() {
     }
-    fn print_cards(&self, hand: &hand::Hand, player: usize) {
-       let div_container = if player == 0 {
+    fn print_cards(&self, player: &player::Player<Y>) { // hand: &hand::Hand, player: usize) {
+       let hand = player.get_hand();
+       let div_container = if player.playing_order == 0 {
            &self.player1CardsAreaDiv
        } else {
            &self.player2CardsAreaDiv
        };
-       for card in hand.get_hand() {
+       for (card_idx, card) in hand.get_hand().iter().enumerate() {
           let card_svg = self.generate_svg(&from_card_to_url(card), Some("id1"));
-          let f = Closure::wrap(Box::new(move || {  log!("hello"); }) as Box<dyn FnMut()>);
+          let f = Closure::wrap(Box::new(move || {
+              log!("hello {}", card_idx);
+          }) as Box<dyn FnMut()>);
           card_svg.set_onclick(Some(f.as_ref().unchecked_ref()));
           f.forget();
           div_container.append_child(&card_svg).unwrap();

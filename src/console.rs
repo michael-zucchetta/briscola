@@ -6,6 +6,7 @@ use crate::card;
 use crate::deck;
 use crate::hand;
 use crate::game;
+use crate::player;
 
 use std::fmt;
 use std::io;
@@ -34,7 +35,7 @@ impl ConsolePainter {
     }
 }
 
-impl painter::Painter for ConsolePainter {
+impl <Y> painter::Painter<Y> for ConsolePainter where Y: game::UserInput {
     fn print_card(card: card::Card) {
         let (value, suit, color) = ConsolePainter::get_card(card);
         println!("{} {}", value, color.bold().paint(suit));
@@ -48,7 +49,8 @@ impl painter::Painter for ConsolePainter {
     fn update_game() {
     }
 
-    fn print_cards(&self, hand: &hand::Hand, player: usize) {
+    fn print_cards(&self, player: &player::Player<Y>) {
+       let hand = player.get_hand();
        println!("User hand is {:?}", hand.get_hand_ref());
     }
 
