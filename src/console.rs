@@ -89,7 +89,6 @@ impl game::UserInput for Console {
     }
 }
 
-
 impl fmt::Display for game::Game<ConsolePainter, Console> {
    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
      write!(f, "")

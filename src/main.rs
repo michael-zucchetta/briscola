@@ -1,5 +1,3 @@
-
-
 use briscola::deck;
 use briscola::game;
 use briscola::console;
