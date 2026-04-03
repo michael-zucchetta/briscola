@@ -1,5 +1,3 @@
-use ansi_term::Colour::{Yellow, Purple, Green, Blue};
-
 use crate::card;
 
 pub trait Painter {

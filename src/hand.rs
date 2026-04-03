@@ -9,7 +9,6 @@ pub struct Hand {
 
 impl Hand {
   pub fn assign_cards(&self, cards: Vec<card::Card>) {
-    println!("Cards are {:?}", cards);
     let size = cards.len();
     self.cards.set(cards);
     self.size.set(size);
@@ -18,13 +17,11 @@ impl Hand {
   pub fn select_card(&self, selected_card: usize) -> card::Card {
     let card_index = selected_card;
     let cards = self.cards.take();
-    println!("Cards are {:?}", cards);
-    println!("selected card {}", selected_card);
     let chosen_card = cards.get(selected_card).unwrap();
-    let filtered_cards = cards.iter().enumerate().filter(|(index, element)| {
+    let filtered_cards = cards.iter().enumerate().filter(|(index, _element)| {
        *index != card_index
     })
-    .map(|(index, element)| element.clone())
+    .map(|(_index, element)| element.clone())
     .collect::<Vec<card::Card>>();
     self.size.set(filtered_cards.len());
     self.cards.set(filtered_cards);
@@ -39,11 +36,14 @@ impl Hand {
   }
 
   pub fn get_hand(&self) -> Vec<card::Card> {
-    self.cards.take()
+    let cards = self.cards.take();
+    let hand = cards.clone();
+    self.cards.set(cards);
+    hand
   }
 
   pub fn size(&self) -> usize {
-    self.size.clone().take()
+    self.size.get()
   }
 
   pub fn new () -> Hand {

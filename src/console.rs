@@ -5,6 +5,7 @@ use crate::painter;
 use crate::card;
 use crate::hand;
 use crate::game;
+use crate::player;
 
 use std::fmt;
 use std::io;
@@ -69,23 +70,70 @@ impl fmt::Display for hand::Hand  {
 
 #[derive(Clone)]
 pub struct Console {
-
+    single_human_player: Option<usize>,
 }
 
 impl Console {
+  pub fn new(player_types: [player::PlayerType; 2]) -> Console {
+    let human_players = player_types
+        .iter()
+        .enumerate()
+        .filter_map(|(index, player_type)| {
+            if *player_type == player::PlayerType::Player {
+                Some(index + 1)
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<usize>>();
 
-  pub fn new() -> Console {
-    Console {}
+    let single_human_player = if human_players.len() == 1 {
+        human_players.first().copied()
+    } else {
+        None
+    };
+
+    Console { single_human_player }
+  }
+
+  fn is_single_human_player(&self, player_index: usize) -> bool {
+    self.single_human_player == Some(player_index)
+  }
+
+  fn cards_label(&self, player_index: usize) -> String {
+    if self.is_single_human_player(player_index) {
+        "Your cards:".to_string()
+    } else {
+        format!("Player {} cards:", player_index)
+    }
+  }
+
+  fn selection_label(&self, player_index: usize) -> String {
+    if self.is_single_human_player(player_index) {
+        "Select your card index:".to_string()
+    } else {
+        format!("Select a card index for player {}:", player_index)
+    }
   }
 }
 
 impl game::UserInput for Console {
-    fn user_input(&self) -> usize {
-        let mut command_as_text = string::String::new();
-        println!("selecting move");
-        io::stdin().read_line(&mut command_as_text);
-        println!("selecting move");
-        command_as_text.parse::<usize>().unwrap()
+    fn user_input(&self, player_index: usize, hand: &[card::Card]) -> usize {
+        loop {
+            println!("{}", self.cards_label(player_index));
+            for (index, card) in hand.iter().enumerate() {
+                println!("  [{}] {}", index, card);
+            }
+            println!("{}", self.selection_label(player_index));
+
+            let mut command_as_text = string::String::new();
+            let _ = io::stdin().read_line(&mut command_as_text);
+
+            match command_as_text.trim().parse::<usize>() {
+                Ok(selected) if selected < hand.len() => return selected,
+                _ => println!("Invalid card index. Try again."),
+            }
+        }
     }
 }
 
@@ -119,5 +167,21 @@ mod tests {
         assert_eq!(color, Colour::Blue);
         assert_eq!(value, 2u8);
         assert_eq!(suit, "Cups");
+    }
+
+    #[test]
+    fn single_human_uses_you_labels() {
+        let console = Console::new([player::PlayerType::Player, player::PlayerType::AI]);
+
+        assert_eq!(console.cards_label(1), "Your cards:");
+        assert_eq!(console.selection_label(1), "Select your card index:");
+    }
+
+    #[test]
+    fn two_humans_keep_player_labels() {
+        let console = Console::new([player::PlayerType::Player, player::PlayerType::Player]);
+
+        assert_eq!(console.cards_label(1), "Player 1 cards:");
+        assert_eq!(console.selection_label(2), "Select a card index for player 2:");
     }
 }

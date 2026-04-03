@@ -1,4 +1,3 @@
-use rand::Rng;
 use rand::seq::SliceRandom;
 use crate::card;
 use crate::hand;
@@ -28,7 +27,8 @@ impl Deck {
     }
 
     fn shuffle_deck(cards: &mut Vec<card::Card>) {
-        cards.shuffle(&mut rand::thread_rng());
+        let mut rng = rand::rng();
+        cards.shuffle(&mut rng);
     }
 
     pub fn get_card(&self) -> Option<card::Card> {

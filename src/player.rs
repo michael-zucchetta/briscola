@@ -1,17 +1,25 @@
 use crate::card;
 
-use rand::RngCore;
-use rand_core::OsRng;
 use std::cell::Cell;
 use crate::game;
 use crate::hand;
 
 
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PlayerType {
     AI,
     Player
+}
+
+impl PlayerType {
+    pub fn from_cli(value: &str) -> Option<PlayerType> {
+        match value.to_ascii_lowercase().as_str() {
+            "ai" => Some(PlayerType::AI),
+            "human" | "player" => Some(PlayerType::Player),
+            _ => None,
+        }
+    }
 }
 
 pub struct Player<T: game::UserInput>  {
@@ -45,15 +53,15 @@ impl <T> Player <T> where T: game::UserInput {
         self.hand.select_card(selected_card)
     }
 
-    pub fn play_card(&self) -> card::Card {
+    pub fn play_card(&self, player_index: usize) -> card::Card {
       let selected = if self.player_type == PlayerType::AI {
           let hand_size = self.hand.size();
-          let random = OsRng.next_u32() as usize;
-          let selected = random % hand_size;
-          println!("Cards size in player {} {} {}", hand_size, random, selected);
+          let selected = rand::random_range(0..hand_size);
+          println!("Player {} AI selected {}", player_index, selected);
           selected
        } else {
-           self.input_handler.user_input()
+           let hand = self.hand.get_hand();
+           self.input_handler.user_input(player_index, &hand)
        };
 
        self.select_card(selected)
@@ -67,7 +75,7 @@ impl <T> Player <T> where T: game::UserInput {
 
     pub fn calculate_score(&self) -> u8 {
         let cards_won = self.cards_won.take();
-        cards_won.into_iter().map(|card| {
+        let score = cards_won.iter().map(|card| {
           match card.value.eval() {
             1u8 => 11u8,
             3u8 => 10u8,
@@ -76,7 +84,9 @@ impl <T> Player <T> where T: game::UserInput {
             10u8 => 4u8,
             _ => 0u8,
           }
-        }).sum()
+        }).sum();
+        self.cards_won.set(cards_won);
+        score
     }
 }
 
@@ -93,10 +103,13 @@ mod tests {
         hand.push(card1);
         hand.push(card2);
         hand.push(card3);
-        let player = Player::new(PlayerType::Player, console::Console::new());
+        let player = Player::new(
+            PlayerType::Player,
+            console::Console::new([PlayerType::Player, PlayerType::AI])
+        );
         player.assign_cards(hand);
         let selected_card = player.select_card(2);
-        assert_eq!(selected_card, card2);
+        assert_eq!(selected_card, card3);
     }
 
     #[test]
@@ -104,7 +117,10 @@ mod tests {
 	let card1 = card::Card::new( card::CardNumber::Two, card::CardSuit::Cups);
 	let card2 = card::Card::new( card::CardNumber::Four, card::CardSuit::Cups);
 	let card3 = card::Card::new( card::CardNumber::King, card::CardSuit::Swords);
-        let mut player = Player::new(PlayerType::Player, console::Console::new());
+        let player = Player::new(
+            PlayerType::Player,
+            console::Console::new([PlayerType::Player, PlayerType::AI])
+        );
         let mut hand = Vec::with_capacity(3);
         hand.push(card1);
         hand.push(card2);
@@ -119,7 +135,10 @@ mod tests {
 	let card1 = card::Card::new( card::CardNumber::Two, card::CardSuit::Cups);
 	let card2 = card::Card::new( card::CardNumber::Four, card::CardSuit::Cups);
 	let card3 = card::Card::new( card::CardNumber::King, card::CardSuit::Swords);
-        let mut player = Player::new(PlayerType::Player, console::Console::new());
+        let player = Player::new(
+            PlayerType::Player,
+            console::Console::new([PlayerType::Player, PlayerType::AI])
+        );
         let mut hand = Vec::with_capacity(3);
         hand.push(card1);
         hand.push(card2);
@@ -128,4 +147,3 @@ mod tests {
         assert_eq!(player.calculate_score(), 4u8);
     }
 }
-
