@@ -44,10 +44,10 @@ fn main() {
     println!("Player 2 mode: {:?}", player2);
 
     let mut game = game::Game::new(
-       game::PlayersSize::Two,
-       [player1, player2],
-       console::ConsolePainter::new(),
-       console::Console::new([player1, player2])
+        game::PlayersSize::Two,
+        [player1, player2],
+        console::ConsolePainter::new(),
+        console::Console::new([player1, player2]),
     );
     let player_won = game.game();
     println!("Player {} won", player_won);

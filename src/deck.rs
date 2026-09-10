@@ -1,10 +1,11 @@
-use rand::seq::SliceRandom;
 use crate::card;
 use crate::hand;
+use rand::seq::SliceRandom;
+use rand::thread_rng;
 use std::cell::RefCell;
 
 pub struct Deck {
-    cards: RefCell<Vec<card::Card>>
+    cards: RefCell<Vec<card::Card>>,
 }
 
 impl Deck {
@@ -13,7 +14,7 @@ impl Deck {
         Deck::shuffle_deck(&mut cards);
         // cloned -> clones the inner reference
 
-        Deck{
+        Deck {
             cards: RefCell::new(cards),
         }
     }
@@ -27,18 +28,21 @@ impl Deck {
     }
 
     fn shuffle_deck(cards: &mut Vec<card::Card>) {
-        let mut rng = rand::rng();
+        let mut rng = thread_rng();
         cards.shuffle(&mut rng);
     }
 
     pub fn get_card(&self) -> Option<card::Card> {
-        self.cards.borrow_mut().pop()
+        let mut cards = self.cards.borrow_mut();
+        if cards.is_empty() {
+            None
+        } else {
+            Some(cards.remove(0))
+        }
     }
 
     pub fn get_hand(&self) -> hand::Hand {
-        let cards_hand = (0..2).map(|_| {
-            self.cards.borrow_mut().pop().unwrap()
-        }).collect();
+        let cards_hand = (0..2).map(|_| self.cards.borrow_mut().remove(0)).collect();
         let hand = hand::Hand::new();
         hand.assign_cards(cards_hand);
         hand

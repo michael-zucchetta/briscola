@@ -1,11 +1,12 @@
-use crate::deck;
 use crate::card;
 use crate::constants;
+use crate::deck;
 use crate::game;
 use crate::painter;
 use crate::player;
 
 extern crate rand;
+use rand::Rng;
 
 // use rand::rngs::{OsRng, RngCore};
 
@@ -28,10 +29,14 @@ pub struct Game<T: painter::Painter, Y: game::UserInput> {
     players: [player::Player<Y>; 2],
     players_size: PlayersSize,
     player_turn: PlayerTurn,
-    painter: T
+    painter: T,
 }
 
-impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
+impl<T, Y> Game<T, Y>
+where
+    T: painter::Painter,
+    Y: game::UserInput,
+{
     fn winner_from_scores(score1: u8, score2: u8) -> usize {
         if score1 > score2 {
             1
@@ -44,18 +49,17 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
         players_size: PlayersSize,
         player_types: [player::PlayerType; 2],
         painter: T,
-        user_input: Y
+        user_input: Y,
     ) -> Game<T, Y> {
         let deck = deck::Deck::new();
         // TODO: change to have multiple players (two or four)
         let players = match players_size {
             PlayersSize::Two => [
                 player::Player::new(player_types[0], user_input.clone()),
-                player::Player::new(player_types[1], user_input)
-            ]
-            //PlayersSize::Four =>
+                player::Player::new(player_types[1], user_input),
+            ], //PlayersSize::Four =>
         };
-        let value = rand::random_range(0..2);
+        let value = rand::thread_rng().gen_range(0..2);
         let turn = match value {
             0 => PlayerTurn::Player1,
             1 => PlayerTurn::Player2,
@@ -69,7 +73,7 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
             players: players,
             players_size: players_size,
             player_turn: turn,
-            painter: painter
+            painter: painter,
         }
     }
 
@@ -77,55 +81,51 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
         // constants.HAND_SIZE
         for player in self.players.iter() {
             if initial {
-              let mut hand = Vec::with_capacity(3);
-              for _ in 0..constants::HAND_SIZE {
-                hand.push(self.deck.get_card().unwrap());
-              }
-              player.assign_cards(hand);
+                let mut hand = Vec::with_capacity(3);
+                for _ in 0..constants::HAND_SIZE {
+                    hand.push(self.deck.get_card().unwrap());
+                }
+                player.assign_cards(hand);
             } else {
-              player.add_card_to_hand(self.deck.get_card().unwrap());
+                player.add_card_to_hand(self.deck.get_card().unwrap());
             }
         }
     }
 
     pub fn wins_first(&self, card1: card::Card, card2: card::Card) -> bool {
         if card1.suit == self.briscola.suit {
-           if card2.suit != self.briscola.suit {
-              true
-           } else {
-             card1.value.eval() > card2.value.eval()
-           }
+            if card2.suit != self.briscola.suit {
+                true
+            } else {
+                card1.value.eval() > card2.value.eval()
+            }
         } else {
-          if card2.suit == self.briscola.suit {
-             false
-          } else {
-             card1.value.eval() > card2.value.eval()
-          }
+            if card2.suit == self.briscola.suit {
+                false
+            } else {
+                card1.value.eval() > card2.value.eval()
+            }
         }
     }
 
     pub fn turn(&mut self, initial: bool) {
         self.assign_cards(initial);
         let last_turn = self.deck.is_deck_empty();
-        let plays_size = if last_turn {
-          3usize
-        } else {
-          1usize
-        };
+        let plays_size = if last_turn { 3usize } else { 1usize };
         for i in 0..plays_size {
             println!("N. {}", i);
             let ((player1, player1_index), (player2, player2_index)) =
                 if self.player_turn == PlayerTurn::Player1 {
-                (
-                    (self.players.get(0).unwrap(), 1usize),
-                    (self.players.get(1).unwrap(), 2usize),
-                )
-            } else {
-                (
-                    (self.players.get(1).unwrap(), 2usize),
-                    (self.players.get(0).unwrap(), 1usize),
-                )
-            };
+                    (
+                        (self.players.get(0).unwrap(), 1usize),
+                        (self.players.get(1).unwrap(), 2usize),
+                    )
+                } else {
+                    (
+                        (self.players.get(1).unwrap(), 2usize),
+                        (self.players.get(0).unwrap(), 1usize),
+                    )
+                };
             let card1 = player1.play_card(player1_index);
             let card2 = player2.play_card(player2_index);
             println!(
@@ -136,21 +136,21 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
             cards_won.push(card1);
             cards_won.push(card2);
             if self.wins_first(card1, card2) {
-               println!("Player {} won turn", player1_index);
-               player1.add_won_cards(&mut cards_won);
-               self.player_turn = if player1_index == 1 {
-                   PlayerTurn::Player1
-               } else {
-                   PlayerTurn::Player2
-               };
+                println!("Player {} won turn", player1_index);
+                player1.add_won_cards(&mut cards_won);
+                self.player_turn = if player1_index == 1 {
+                    PlayerTurn::Player1
+                } else {
+                    PlayerTurn::Player2
+                };
             } else {
-               println!("Player {} won turn", player2_index);
-               player2.add_won_cards(&mut cards_won);
-               self.player_turn = if player2_index == 1 {
-                   PlayerTurn::Player1
-               } else {
-                   PlayerTurn::Player2
-               };
+                println!("Player {} won turn", player2_index);
+                player2.add_won_cards(&mut cards_won);
+                self.player_turn = if player2_index == 1 {
+                    PlayerTurn::Player1
+                } else {
+                    PlayerTurn::Player2
+                };
             }
         }
     }
@@ -159,9 +159,9 @@ impl<T, Y> Game<T, Y> where T: painter::Painter, Y: game::UserInput {
         println!("Beginning game");
         let mut i = 0u8;
         while !self.deck.is_deck_empty() {
-          i = i + 1;
-          println!("Turn {}", i);
-          self.turn(i == 1);
+            i = i + 1;
+            println!("Turn {}", i);
+            self.turn(i == 1);
         }
         let score1 = self.players.get(0).unwrap().calculate_score();
         let score2 = self.players.get(1).unwrap().calculate_score();
@@ -208,6 +208,9 @@ mod tests {
             console::Console::new([player::PlayerType::AI, player::PlayerType::AI]),
         );
 
-        assert!(matches!(game.player_turn, PlayerTurn::Player1 | PlayerTurn::Player2));
+        assert!(matches!(
+            game.player_turn,
+            PlayerTurn::Player1 | PlayerTurn::Player2
+        ));
     }
 }
