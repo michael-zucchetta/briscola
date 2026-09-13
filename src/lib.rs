@@ -556,7 +556,8 @@ fn set_styles(document: &Document) {
             min-height: 0;
             padding: 10px;
             display: grid;
-            grid-template-rows: auto 1fr auto;
+            grid-template-rows: auto auto auto;
+            align-content: center;
             gap: 12px;
             border: 1px solid var(--terminal-border);
             background: var(--terminal-bg);
