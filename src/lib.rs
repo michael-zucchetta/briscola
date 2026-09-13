@@ -5,6 +5,7 @@ use rand::Rng;
 use wasm_bindgen::{closure::Closure, prelude::*, JsCast};
 use web_sys::{window, Document, Element};
 
+pub mod ai;
 pub mod card;
 pub mod console;
 pub mod constants;
@@ -13,6 +14,7 @@ pub mod game;
 pub mod hand;
 pub mod painter;
 pub mod player;
+pub mod rules;
 
 const FULL_DECK_SIZE: usize = 40;
 
@@ -44,6 +46,10 @@ struct BrowserGame {
     deck_size: usize,
     draw_first_player: usize,
     draw_second_player: usize,
+    ai_difficulty: ai::AiDifficulty,
+    fill_screen: bool,
+    last_dealt_player: Option<usize>,
+    tick_generation: u32,
 }
 
 impl BrowserGame {
@@ -66,11 +72,15 @@ impl BrowserGame {
             player_turn,
             pending_trick_winner: None,
             phase: Phase::Dealing,
-            status: "Shuffling deck for the animated table.".to_string(),
+            status: "shuffle / deal".to_string(),
             trick_number: 1,
             deck_size: FULL_DECK_SIZE,
             draw_first_player: 1,
             draw_second_player: 2,
+            ai_difficulty: ai::AiDifficulty::Challenger,
+            fill_screen: false,
+            last_dealt_player: None,
+            tick_generation: 0,
         }
     }
 
@@ -93,7 +103,7 @@ impl BrowserGame {
         if player_index == 1 {
             "you"
         } else {
-            "Player 2"
+            "challenger"
         }
     }
 
@@ -101,7 +111,7 @@ impl BrowserGame {
         if player_index == 1 {
             "You"
         } else {
-            "Player 2"
+            "Challenger"
         }
     }
 
@@ -125,14 +135,44 @@ impl BrowserGame {
         if let Some(card) = self.deck.get_card() {
             self.hand_mut(player_index).push(card);
             self.deck_size = self.deck_size.saturating_sub(1);
+            self.last_dealt_player = Some(player_index);
         }
     }
 
-    fn play_random_card(&mut self, player_index: usize) {
+    fn play_ai_card(&mut self, player_index: usize) {
+        let lead_card = self.trick_cards.first().map(|(_, card)| *card);
+        let visible_state = ai::VisibleGameState {
+            briscola_suit: self.briscola.suit,
+            lead_card,
+        };
+        let difficulty = self.ai_difficulty;
         let hand = self.hand_mut(player_index);
-        let selected = rand::thread_rng().gen_range(0..hand.len());
+        let selected = ai::choose_card(difficulty, visible_state, hand);
         let card = hand.remove(selected);
         self.trick_cards.push((player_index, card));
+    }
+
+    fn restart(&mut self) {
+        let ai_difficulty = self.ai_difficulty;
+        let fill_screen = self.fill_screen;
+        let tick_generation = self.tick_generation.wrapping_add(1);
+        *self = BrowserGame::new();
+        self.ai_difficulty = ai_difficulty;
+        self.fill_screen = fill_screen;
+        self.tick_generation = tick_generation;
+    }
+
+    fn set_ai_difficulty(&mut self, ai_difficulty: ai::AiDifficulty) {
+        self.ai_difficulty = ai_difficulty;
+        self.restart();
+    }
+
+    fn toggle_fill_screen(&mut self) {
+        self.fill_screen = !self.fill_screen;
+    }
+
+    fn tick_generation(&self) -> u32 {
+        self.tick_generation
     }
 
     fn waiting_for_player1(&self) -> bool {
@@ -154,12 +194,12 @@ impl BrowserGame {
         match self.phase {
             Phase::Lead => {
                 self.phase = Phase::Follow;
-                self.status = format!("Trick {}. You lead.", self.trick_number);
+                self.status = format!("trick {} / you lead", self.trick_number);
                 Some(1050)
             }
             Phase::Follow => {
                 self.phase = Phase::Resolve;
-                self.status = format!("Trick {}. You answer.", self.trick_number);
+                self.status = format!("trick {} / you answer", self.trick_number);
                 Some(1150)
             }
             _ => None,
@@ -167,17 +207,7 @@ impl BrowserGame {
     }
 
     fn wins_first(&self, card1: card::Card, card2: card::Card) -> bool {
-        if card1.suit == self.briscola.suit {
-            if card2.suit != self.briscola.suit {
-                true
-            } else {
-                card1.value.eval() > card2.value.eval()
-            }
-        } else if card2.suit == self.briscola.suit {
-            false
-        } else {
-            card1.value.eval() > card2.value.eval()
-        }
+        rules::wins_first(card1, card2, self.briscola.suit)
     }
 
     fn preview_trick_winner(&self) -> usize {
@@ -212,17 +242,7 @@ impl BrowserGame {
     }
 
     fn calculate_score(cards: &[card::Card]) -> u8 {
-        cards
-            .iter()
-            .map(|card| match card.value.eval() {
-                1 => 11,
-                3 => 10,
-                8 => 2,
-                9 => 3,
-                10 => 4,
-                _ => 0,
-            })
-            .sum()
+        rules::calculate_score(cards)
     }
 
     fn scores(&self) -> (u8, u8) {
@@ -252,8 +272,8 @@ impl BrowserGame {
                 if dealt_total == constants::HAND_SIZE * 2 {
                     self.phase = Phase::Lead;
                     self.status = format!(
-                        "Deal complete. Player {} leads the first trick.",
-                        self.leader_index()
+                        "deal complete / {} leads",
+                        Self::player_sentence_label(self.leader_index())
                     );
                     Some(1200)
                 } else {
@@ -263,42 +283,46 @@ impl BrowserGame {
                         self.player2_hand.len()
                     };
                     self.status = format!(
-                        "Dealt a card to {}. Hand now has {} cards. ({}/{})",
+                        "deal / {} / {} cards / {}/{}",
                         Self::player_label(next_player),
                         hand_size,
                         dealt_total,
                         constants::HAND_SIZE * 2,
                     );
-                    Some(650)
+                    Some(320)
                 }
             }
             Phase::Lead => {
                 let player = self.leader_index();
                 if player == 1 {
-                    self.status = format!("Trick {}. Select a card to lead.", self.trick_number);
+                    self.status = format!("trick {} / select lead", self.trick_number);
                     return None;
                 }
-                self.play_random_card(player);
+                self.play_ai_card(player);
                 self.phase = Phase::Follow;
-                self.status = format!("Trick {}. Player {} leads.", self.trick_number, player);
+                self.status = format!("trick {} / challenger leads", self.trick_number);
                 Some(1050)
             }
             Phase::Follow => {
                 let player = Self::other_player(self.leader_index());
                 if player == 1 {
-                    self.status = format!("Trick {}. Select a card to answer.", self.trick_number);
+                    self.status = format!("trick {} / select answer", self.trick_number);
                     return None;
                 }
-                self.play_random_card(player);
+                self.play_ai_card(player);
                 self.phase = Phase::Resolve;
-                self.status = format!("Trick {}. Player {} answers.", self.trick_number, player);
+                self.status = format!("trick {} / challenger answers", self.trick_number);
                 Some(1150)
             }
             Phase::Resolve => {
                 let winner = self.preview_trick_winner();
                 self.pending_trick_winner = Some(winner);
                 self.phase = Phase::Collect;
-                self.status = format!("Player {} wins trick {}.", winner, self.trick_number);
+                self.status = format!(
+                    "trick {} / {} wins",
+                    self.trick_number,
+                    Self::player_sentence_label(winner)
+                );
                 Some(1200)
             }
             Phase::Collect => {
@@ -311,8 +335,8 @@ impl BrowserGame {
                     self.phase = Phase::Finished;
                     let (score1, score2) = self.scores();
                     self.status = format!(
-                        "Player {} wins the game, {} to {}.",
-                        self.game_winner(),
+                        "game / {} wins / {}-{}",
+                        Self::player_sentence_label(self.game_winner()),
                         score1,
                         score2
                     );
@@ -321,12 +345,15 @@ impl BrowserGame {
                     self.draw_first_player = winner;
                     self.draw_second_player = Self::other_player(winner);
                     self.phase = Phase::DrawPlayer1;
-                    self.status =
-                        format!("Player {} collects the trick. Winner draws first.", winner);
-                    Some(950)
+                    self.status = format!(
+                        "{} collects / winner draws first",
+                        Self::player_sentence_label(winner)
+                    );
+                    Some(600)
                 } else {
                     self.phase = Phase::Lead;
-                    self.status = format!("Deck empty. Player {} leads the final stretch.", winner);
+                    self.status =
+                        format!("deck empty / {} leads", Self::player_sentence_label(winner));
                     Some(1100)
                 }
             }
@@ -334,22 +361,16 @@ impl BrowserGame {
                 let player = self.draw_first_player;
                 self.deal_card_to(player);
                 self.phase = Phase::DrawPlayer2;
-                self.status = format!(
-                    "{} drew the first replacement card.",
-                    Self::player_sentence_label(player)
-                );
-                Some(950)
+                self.status = format!("{} draws first.", Self::player_sentence_label(player));
+                Some(600)
             }
             Phase::DrawPlayer2 => {
                 if self.deck_size > 0 {
                     let player = self.draw_second_player;
                     self.deal_card_to(player);
-                    self.status = format!(
-                        "{} drew the second replacement card.",
-                        Self::player_sentence_label(player)
-                    );
+                    self.status = format!("{} draws second.", Self::player_sentence_label(player));
                 } else {
-                    self.status = "No second replacement card remains in the deck.".to_string();
+                    self.status = "deck empty / no second draw".to_string();
                 }
                 self.phase = Phase::Lead;
                 Some(1100)
@@ -379,339 +400,443 @@ fn set_styles(document: &Document) {
         .expect("style id should be set");
     style.set_inner_html(
         r#"
-        :root {
-            --felt-dark: #0d3a27;
-            --felt-mid: #176545;
-            --felt-light: #46a471;
-            --ink: #102117;
-            --panel: rgba(244, 235, 215, 0.92);
-            --line: rgba(255, 255, 255, 0.18);
-            --shadow: rgba(7, 24, 15, 0.28);
+        .briscola-app {
+            --terminal-bg: #000;
+            --terminal-panel: #050505;
+            --terminal-border: #303030;
+            --terminal-active: #457294;
+            --terminal-cyan: #00ffff;
+            --terminal-green: #1cba22;
+            --terminal-amber: #d8a100;
+            --terminal-text: #ffffff;
+            --terminal-muted: #9a9a9a;
+            --card-width: clamp(48px, min(12vw, 13vh), 78px);
+            box-sizing: border-box;
+            width: 100%;
+            min-height: min(620px, 100vh);
+            background: var(--terminal-bg);
+            color: var(--terminal-text);
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
         }
 
-        * {
+        .briscola-app.theme-white {
+            --terminal-bg: #fff;
+            --terminal-panel: #fff;
+            --terminal-border: #d8d8d8;
+            --terminal-active: #bcbcbc;
+            --terminal-cyan: #111;
+            --terminal-green: #111;
+            --terminal-amber: #444;
+            --terminal-text: #111;
+            --terminal-muted: #666;
+        }
+
+        .briscola-app.fill-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 2147483647;
+            height: 100vh;
+            min-height: 100vh;
+            overflow: hidden;
+            --card-width: clamp(54px, min(13vw, 16vh), 104px);
+        }
+
+        .briscola-app *,
+        .briscola-app *::before,
+        .briscola-app *::after {
             box-sizing: border-box;
         }
 
-        body {
-            margin: 0;
-            min-height: 100vh;
-            font-family: Georgia, "Times New Roman", serif;
-            color: #f7f0df;
-            background:
-                radial-gradient(circle at top, rgba(255,255,255,0.14), transparent 28%),
-                linear-gradient(180deg, var(--felt-light) 0%, var(--felt-mid) 34%, var(--felt-dark) 100%);
-        }
-
-        .dashboard {
-            min-height: 100vh;
-            padding: 24px;
+        .briscola-app .dashboard {
+            min-height: min(620px, 100vh);
+            padding: 10px;
             display: grid;
-            grid-template-rows: auto 1fr auto;
-            gap: 24px;
+            grid-template-rows: auto minmax(0, 1fr) auto;
+            gap: 10px;
+            background: var(--terminal-bg);
         }
 
-        .table-header {
+        .briscola-app.fill-screen .dashboard {
+            height: 100vh;
+            min-height: 100vh;
+        }
+
+        .briscola-app .table-header {
             display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 16px;
-            padding: 18px 22px;
-            border: 1px solid var(--line);
-            border-radius: 20px;
-            background: rgba(10, 41, 24, 0.35);
-            backdrop-filter: blur(8px);
-            box-shadow: 0 18px 40px var(--shadow);
+            grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+            gap: 8px;
+            align-items: start;
+            padding: 8px 10px;
+            border: 1px solid var(--terminal-active);
+            background: var(--terminal-panel);
         }
 
-        .table-title {
+        .briscola-app .table-title {
             margin: 0;
-            font-size: clamp(28px, 4vw, 42px);
-            letter-spacing: 0.04em;
+            color: var(--terminal-green);
+            font-size: 18px;
+            line-height: 1.2;
+            letter-spacing: 0;
+            text-transform: lowercase;
         }
 
-        .table-subtitle {
-            margin: 6px 0 0;
-            font-size: 14px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            opacity: 0.78;
+        .briscola-app .table-title::before {
+            content: "$ ";
+            color: var(--terminal-cyan);
         }
 
-        .header-rail {
+        .briscola-app .table-subtitle {
+            margin: 2px 0 0;
+            color: var(--terminal-muted);
+            font-size: 12px;
+            line-height: 1.35;
+        }
+
+        .briscola-app .header-rail,
+        .briscola-app .footer-bar,
+        .briscola-app .control-row {
             display: flex;
             flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .briscola-app .header-rail {
             justify-content: flex-end;
-            gap: 10px;
-            align-items: flex-start;
         }
 
-        .header-pill {
-            padding: 10px 14px;
-            border-radius: 999px;
-            background: rgba(244, 235, 215, 0.14);
-            border: 1px solid rgba(244, 235, 215, 0.26);
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
+        .briscola-app .header-pill,
+        .briscola-app .footer-pill {
+            padding: 2px 6px;
+            border: 1px solid var(--terminal-border);
+            background: transparent;
+            color: var(--terminal-text);
+            font-size: 12px;
+            line-height: 1.35;
         }
 
-        .table-board {
-            position: relative;
+        .briscola-app .header-pill:first-child,
+        .briscola-app .footer-pill.action {
+            color: var(--terminal-amber);
+            border-color: var(--terminal-amber);
+        }
+
+        .briscola-app .terminal-button {
+            min-height: 24px;
+            padding: 2px 8px;
+            border: 1px solid var(--terminal-border);
+            border-radius: 0;
+            background: var(--terminal-bg);
+            color: var(--terminal-cyan);
+            cursor: pointer;
+            font: inherit;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+
+        .briscola-app .terminal-button:hover,
+        .briscola-app .terminal-button:focus-visible,
+        .briscola-app .terminal-button.active {
+            outline: none;
+            border-color: var(--terminal-cyan);
+            background: #052323;
+        }
+
+        .briscola-app .terminal-button.active {
+            color: var(--terminal-green);
+        }
+
+        .briscola-app.theme-white .terminal-button:hover,
+        .briscola-app.theme-white .terminal-button:focus-visible,
+        .briscola-app.theme-white .terminal-button.active {
+            background: #f4f4f4;
+        }
+
+        .briscola-app .table-board {
+            min-height: 0;
+            padding: 10px;
             display: grid;
             grid-template-rows: auto 1fr auto;
-            gap: 28px;
-            padding: 28px;
-            border-radius: 28px;
-            border: 1px solid var(--line);
-            background:
-                radial-gradient(circle at center, rgba(255,255,255,0.08), transparent 55%),
-                rgba(8, 40, 24, 0.32);
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 28px 60px var(--shadow);
-            overflow: hidden;
+            gap: 12px;
+            border: 1px solid var(--terminal-border);
+            background: var(--terminal-bg);
+            overflow: auto;
         }
 
-        .table-board::before {
-            content: "";
-            position: absolute;
-            inset: 12px;
-            border: 1px dashed rgba(255,255,255,0.18);
-            border-radius: 22px;
-            pointer-events: none;
-        }
-
-        .player-zone {
-            position: relative;
-            z-index: 1;
+        .briscola-app .player-zone {
             display: grid;
-            gap: 14px;
+            gap: 6px;
             justify-items: center;
         }
 
-        .player-label {
+        .briscola-app .player-label,
+        .briscola-app .stack-label,
+        .briscola-app .trick-slot-label {
             margin: 0;
-            font-size: 14px;
+            color: var(--terminal-green);
+            font-size: 12px;
+            line-height: 1.25;
+            letter-spacing: 0;
             text-transform: uppercase;
-            letter-spacing: 0.14em;
-            opacity: 0.82;
         }
 
-        .player-hand {
+        .briscola-app .player-hand {
+            min-height: calc((var(--card-width) * 1.5) + 12px);
             display: flex;
+            flex-wrap: wrap;
             justify-content: center;
             align-items: center;
-            gap: 14px;
-            flex-wrap: wrap;
-            min-height: 168px;
+            gap: 8px;
         }
 
-        .table-middle {
-            position: relative;
-            z-index: 1;
+        .briscola-app .table-middle {
             display: grid;
-            grid-template-columns: repeat(3, minmax(160px, 220px));
+            grid-template-columns:
+                minmax(calc(var(--card-width) * 1.55), calc(var(--card-width) * 2.15))
+                minmax(calc(var(--card-width) * 2.45), calc(var(--card-width) * 3))
+                minmax(calc(var(--card-width) * 1.55), calc(var(--card-width) * 2.15));
             justify-content: center;
-            gap: 24px;
             align-items: stretch;
+            gap: 10px;
         }
 
-        .stack-panel {
-            padding: 18px;
-            border-radius: 22px;
-            background: rgba(244, 235, 215, 0.08);
-            border: 1px solid rgba(255,255,255,0.14);
-            box-shadow: 0 18px 35px rgba(0,0,0,0.14);
+        .briscola-app .stack-panel {
+            padding: 8px;
+            border: 1px solid var(--terminal-border);
+            background: var(--terminal-panel);
+            display: grid;
+            justify-items: center;
+            min-width: 0;
         }
 
-        .stack-label {
-            margin: 0 0 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            font-size: 12px;
-            opacity: 0.8;
+        .briscola-app .stack-label {
+            margin-bottom: 8px;
+            color: var(--terminal-cyan);
         }
 
-        .deck-stack,
-        .trick-stack {
+        .briscola-app .deck-stack,
+        .briscola-app .trick-stack {
             position: relative;
-            width: 112px;
-            height: 168px;
+            width: var(--card-width);
+            height: calc(var(--card-width) * 1.5);
             margin: 0 auto;
         }
 
-        .deck-stack .card-shell {
+        .briscola-app .deck-stack .card-shell {
             position: absolute;
             inset: 0;
+            width: 100%;
             min-width: 0;
+        }
+
+        .briscola-app .deck-stack .card-back {
+            transform: none;
+        }
+
+        .briscola-app .deck-stack .card-back:nth-last-child(2) {
+            transform: translate(4px, 3px);
+        }
+
+        .briscola-app .deck-stack .card-back:nth-last-child(3) {
+            transform: translate(8px, 6px);
+        }
+
+        .briscola-app .trick-slots {
+            display: grid;
+            grid-template-columns: repeat(2, var(--card-width));
+            justify-content: center;
+            gap: 8px;
+            justify-items: center;
             width: 100%;
         }
 
-        .deck-stack .card-back:nth-child(1) {
-            transform: translate(12px, 10px) rotate(8deg);
-        }
-
-        .deck-stack .card-back:nth-child(2) {
-            transform: translate(6px, 5px) rotate(4deg);
-        }
-
-        .deck-stack .card-back:nth-child(3) {
-            transform: translate(0, 0);
-        }
-
-        .trick-slots {
+        .briscola-app .trick-slot {
             display: grid;
-            gap: 12px;
+            gap: 6px;
             justify-items: center;
         }
 
-        .trick-slot {
-            display: grid;
-            gap: 8px;
-            justify-items: center;
+        .briscola-app .trick-slot-label {
+            grid-row: 2;
         }
 
-        .trick-slot-label {
-            margin: 0;
-            font-size: 11px;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            opacity: 0.74;
+        .briscola-app .trick-slot .card-shell,
+        .briscola-app .trick-slot .card-placeholder {
+            grid-row: 1;
         }
 
-        .stack-count {
-            margin: 14px 0 0;
+        .briscola-app .stack-count {
+            margin: 8px 0 0;
             text-align: center;
-            font-size: 28px;
+            color: var(--terminal-green);
+            font-size: 18px;
+            line-height: 1.1;
             font-weight: 700;
         }
 
-        .stack-caption {
+        .briscola-app .stack-caption {
             margin: 4px 0 0;
             text-align: center;
-            font-size: 13px;
-            opacity: 0.76;
+            color: var(--terminal-muted);
+            font-size: 11px;
+            line-height: 1.3;
         }
 
-        .card-shell,
-        .card-button,
-        .card-placeholder {
-            width: min(18vw, 112px);
-            min-width: 86px;
+        .briscola-app .card-shell,
+        .briscola-app .card-button,
+        .briscola-app .card-placeholder {
+            width: var(--card-width);
+            min-width: var(--card-width);
             aspect-ratio: 2 / 3;
-            border-radius: 14px;
+            border-radius: 2px;
             overflow: hidden;
-            box-shadow: 0 12px 28px rgba(0,0,0,0.24);
-            background: #f9f6eb;
+            box-shadow: none;
+            background: transparent;
             display: flex;
             align-items: center;
             justify-content: center;
         }
 
-        .card-button {
+        .briscola-app .card-button {
             padding: 0;
-            border: 0;
+            border: 1px solid transparent;
             cursor: pointer;
-            transition: transform 160ms ease, box-shadow 160ms ease;
+            transition: transform 140ms ease;
+            background: transparent;
         }
 
-        .card-button:hover,
-        .card-button:focus-visible {
-            outline: 3px solid rgba(255, 240, 178, 0.88);
-            outline-offset: 4px;
-            transform: translateY(-8px);
-            box-shadow: 0 20px 34px rgba(0,0,0,0.3);
+        .briscola-app .card-button:hover,
+        .briscola-app .card-button:focus-visible {
+            outline: 1px solid var(--terminal-cyan);
+            outline-offset: 2px;
+            transform: translateY(-3px);
         }
 
-        .card-button:active {
-            transform: translateY(-4px);
-        }
-
-        .card-shell svg,
-        .card-button svg,
-        .card-shell img {
+        .briscola-app .card-shell svg,
+        .briscola-app .card-button svg {
             width: 100%;
             height: 100%;
             display: block;
         }
 
-        .card-back {
-            border-radius: 14px;
-            border: 2px solid rgba(244, 235, 215, 0.32);
-            background:
-                linear-gradient(135deg, rgba(255,255,255,0.12), transparent),
-                repeating-linear-gradient(
-                    45deg,
-                    rgba(245, 229, 184, 0.22) 0,
-                    rgba(245, 229, 184, 0.22) 8px,
-                    rgba(109, 49, 28, 0.4) 8px,
-                    rgba(109, 49, 28, 0.4) 16px
-                ),
-                linear-gradient(180deg, #8b4520 0%, #6f2b16 100%);
+        .briscola-app .card-back {
+            border: 1px solid var(--terminal-border);
+            background: transparent;
         }
 
-        .card-back::after,
-        .card-placeholder::after {
-            content: "";
-            width: calc(100% - 18px);
-            height: calc(100% - 18px);
-            border-radius: 10px;
-            border: 1px solid rgba(244, 235, 215, 0.45);
-            background: rgba(255,255,255,0.06);
+        .briscola-app .dealt-card-to-challenger {
+            animation: deal-to-challenger 280ms cubic-bezier(.2, .8, .2, 1) both;
         }
 
-        .card-placeholder {
-            border: 2px dashed rgba(244, 235, 215, 0.32);
-            background: rgba(255, 255, 255, 0.04);
-            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+        .briscola-app .dealt-card-to-you {
+            animation: deal-to-you 280ms cubic-bezier(.2, .8, .2, 1) both;
         }
 
-        .footer-bar {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-
-        .footer-pill {
-            padding: 10px 16px;
-            border-radius: 999px;
-            background: rgba(10, 41, 24, 0.35);
-            border: 1px solid rgba(255,255,255,0.18);
-            font-size: 13px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }
-
-        .footer-pill.action {
-            background: rgba(255, 240, 178, 0.2);
-            border-color: rgba(255, 240, 178, 0.48);
-            color: #fff4bb;
-        }
-
-        @media (max-width: 900px) {
-            .table-middle {
-                grid-template-columns: 1fr;
+        @keyframes deal-to-challenger {
+            from {
+                opacity: .35;
+                transform: translateY(145px) scale(.92);
             }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes deal-to-you {
+            from {
+                opacity: .35;
+                transform: translateY(-145px) scale(.92);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .briscola-app .card-placeholder::after {
+            content: "";
+            width: calc(100% - 12px);
+            height: calc(100% - 12px);
+            border: 1px solid var(--terminal-border);
+        }
+
+        .briscola-app .card-placeholder {
+            border: 1px dashed var(--terminal-border);
+            background: var(--terminal-panel);
         }
 
         @media (max-width: 720px) {
-            .dashboard {
-                padding: 16px;
-                gap: 16px;
+            .briscola-app {
+                --card-width: clamp(30px, min(10vw, 9vh), 42px);
             }
 
-            .table-board {
-                padding: 18px;
-                gap: 20px;
+            .briscola-app.fill-screen {
+                --card-width: clamp(32px, min(11vw, 10vh), 46px);
             }
 
-            .table-header {
+            .briscola-app .dashboard {
+                min-height: 100%;
+                padding: 6px;
+                gap: 8px;
+            }
+
+            .briscola-app .table-header {
                 grid-template-columns: 1fr;
             }
 
-            .header-rail {
+            .briscola-app .table-middle {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                justify-content: stretch;
+                width: 100%;
+                gap: 4px;
+            }
+
+            .briscola-app .stack-panel {
+                padding: 4px;
+                width: 100%;
+            }
+
+            .briscola-app .stack-label {
+                margin-bottom: 4px;
+            }
+
+            .briscola-app .trick-slots {
+                gap: 4px;
+            }
+
+            .briscola-app .player-label,
+            .briscola-app .stack-label,
+            .briscola-app .trick-slot-label {
+                font-size: 10px;
+            }
+
+            .briscola-app .stack-count {
+                margin-top: 4px;
+                font-size: 14px;
+            }
+
+            .briscola-app .stack-caption {
+                margin-top: 2px;
+                font-size: 10px;
+            }
+
+            .briscola-app .header-rail {
                 justify-content: flex-start;
             }
+
+            .briscola-app .player-hand {
+                min-height: calc((var(--card-width) * 1.5) + 10px);
+            }
+
+            .briscola-app .card-shell,
+            .briscola-app .card-button,
+            .briscola-app .card-placeholder {
+                width: var(--card-width);
+                min-width: var(--card-width);
+            }
         }
+
     "#,
     );
 
@@ -738,6 +863,41 @@ fn append_text(document: &Document, parent: &Element, tag: &str, class_name: &st
     parent
         .append_child(&element)
         .expect("text element should be appended");
+}
+
+fn mount_element(document: &Document) -> Element {
+    if let Some(element) = document.get_element_by_id("briscola-app") {
+        return element;
+    }
+
+    let element = create_element(document, "div", "briscola-app");
+    element
+        .set_attribute("id", "briscola-app")
+        .expect("mount id should be set");
+    document
+        .body()
+        .expect("document body should exist")
+        .append_child(&element)
+        .expect("mount should be appended");
+    element
+}
+
+fn production_theme(document: &Document) -> String {
+    document
+        .body()
+        .and_then(|body| body.get_attribute("data-production-theme"))
+        .unwrap_or_else(|| "terminal".to_string())
+}
+
+fn app_class_name(document: &Document, fill_screen: bool) -> String {
+    let mut class_name = "briscola-app".to_string();
+    if production_theme(document) == "white" {
+        class_name.push_str(" theme-white");
+    }
+    if fill_screen {
+        class_name.push_str(" fill-screen");
+    }
+    class_name
 }
 
 fn render_card_svg(document: &Document, card: card::Card) -> Element {
@@ -773,8 +933,87 @@ fn render_card_button(
     button
 }
 
+fn render_action_button<F>(document: &Document, label: &str, active: bool, handler: F) -> Element
+where
+    F: 'static + FnMut(),
+{
+    let class_name = if active {
+        "terminal-button active"
+    } else {
+        "terminal-button"
+    };
+    let button = create_element(document, "button", class_name);
+    button
+        .set_attribute("type", "button")
+        .expect("button type should be set");
+    button.set_text_content(Some(label));
+
+    let callback = Closure::<dyn FnMut()>::wrap(Box::new(handler) as Box<dyn FnMut()>);
+    button
+        .add_event_listener_with_callback("click", callback.as_ref().unchecked_ref())
+        .expect("button click handler should be attached");
+    callback.forget();
+    button
+}
+
+fn build_controls(doc: &Document, state: Rc<RefCell<BrowserGame>>) -> Element {
+    let controls = create_element(doc, "div", "control-row");
+
+    let restart_state = Rc::clone(&state);
+    controls
+        .append_child(&render_action_button(doc, "NEW", false, move || {
+            {
+                let mut game = restart_state.borrow_mut();
+                game.restart();
+            }
+            render_dashboard(&document(), Rc::clone(&restart_state));
+            let tick_generation = restart_state.borrow().tick_generation();
+            schedule_next_tick(Rc::clone(&restart_state), 500, tick_generation);
+        }))
+        .expect("restart button should be appended");
+
+    let fill_state = Rc::clone(&state);
+    controls
+        .append_child(&render_action_button(
+            doc,
+            "BIGGER VIEW",
+            state.borrow().fill_screen,
+            move || {
+                {
+                    let mut game = fill_state.borrow_mut();
+                    game.toggle_fill_screen();
+                }
+                render_dashboard(&document(), Rc::clone(&fill_state));
+            },
+        ))
+        .expect("fill button should be appended");
+
+    for (label, difficulty) in [
+        ("RANDOM", ai::AiDifficulty::Random),
+        ("CHALLENGER", ai::AiDifficulty::Challenger),
+    ] {
+        let difficulty_state = Rc::clone(&state);
+        let active = state.borrow().ai_difficulty == difficulty;
+        controls
+            .append_child(&render_action_button(doc, label, active, move || {
+                {
+                    let mut game = difficulty_state.borrow_mut();
+                    game.set_ai_difficulty(difficulty);
+                }
+                render_dashboard(&document(), Rc::clone(&difficulty_state));
+                let tick_generation = difficulty_state.borrow().tick_generation();
+                schedule_next_tick(Rc::clone(&difficulty_state), 500, tick_generation);
+            }))
+            .expect("difficulty button should be appended");
+    }
+
+    controls
+}
+
 fn render_card_back(document: &Document) -> Element {
-    create_element(document, "div", "card-shell card-back")
+    let card_shell = create_element(document, "div", "card-shell card-back");
+    card_shell.set_inner_html(include_str!("../assets/briscola/bresciane/back.svg"));
+    card_shell
 }
 
 fn render_placeholder_card(document: &Document) -> Element {
@@ -784,9 +1023,11 @@ fn render_placeholder_card(document: &Document) -> Element {
 fn build_player_zone(
     document: &Document,
     label: &str,
+    player_index: usize,
     cards: &[card::Card],
     face_up: bool,
     selectable: bool,
+    animate_dealt_card: bool,
     state: Rc<RefCell<BrowserGame>>,
 ) -> Element {
     let zone = create_element(document, "section", "player-zone");
@@ -801,6 +1042,14 @@ fn build_player_zone(
         } else {
             render_card_back(document)
         };
+        if animate_dealt_card && index + 1 == cards.len() {
+            let dealt_class = if player_index == 1 {
+                "dealt-card-to-you"
+            } else {
+                "dealt-card-to-challenger"
+            };
+            card_element.set_class_name(&format!("{} {}", card_element.class_name(), dealt_class));
+        }
         hand.append_child(&card_element)
             .expect("player card should be appended");
     }
@@ -811,8 +1060,8 @@ fn build_player_zone(
 }
 
 fn build_deck_panel(document: &Document, deck_size: usize) -> Element {
-    let panel = create_element(document, "section", "stack-panel");
-    append_text(document, &panel, "p", "stack-label", "Deck");
+    let panel = create_element(document, "section", "stack-panel deck-panel");
+    append_text(document, &panel, "p", "stack-label", "DECK");
 
     let stack = create_element(document, "div", "deck-stack");
     if deck_size == 0 {
@@ -831,19 +1080,13 @@ fn build_deck_panel(document: &Document, deck_size: usize) -> Element {
         .expect("deck stack should be appended");
 
     append_text(document, &panel, "p", "stack-count", &deck_size.to_string());
-    append_text(
-        document,
-        &panel,
-        "p",
-        "stack-caption",
-        "cards remaining in the draw pile",
-    );
+    append_text(document, &panel, "p", "stack-caption", "remaining");
     panel
 }
 
 fn build_trick_panel(document: &Document, trick_cards: &[(usize, card::Card)]) -> Element {
-    let panel = create_element(document, "section", "stack-panel");
-    append_text(document, &panel, "p", "stack-label", "Current Trick");
+    let panel = create_element(document, "section", "stack-panel trick-panel");
+    append_text(document, &panel, "p", "stack-label", "TRICK");
 
     let slots = create_element(document, "div", "trick-slots");
     for player_index in [2usize, 1usize] {
@@ -853,7 +1096,11 @@ fn build_trick_panel(document: &Document, trick_cards: &[(usize, card::Card)]) -
             &slot,
             "p",
             "trick-slot-label",
-            &format!("Player {}", player_index),
+            if player_index == 1 {
+                "YOU"
+            } else {
+                "CHALLENGER"
+            },
         );
 
         let card_node = trick_cards
@@ -872,51 +1119,34 @@ fn build_trick_panel(document: &Document, trick_cards: &[(usize, card::Card)]) -
     panel
         .append_child(&slots)
         .expect("trick slots should be appended");
-    append_text(
-        document,
-        &panel,
-        "p",
-        "stack-caption",
-        "Cards stay here until the trick is collected",
-    );
+    append_text(document, &panel, "p", "stack-caption", "current");
     panel
 }
 
 fn build_trump_panel(document: &Document, briscola: card::Card, deck_size: usize) -> Element {
-    let panel = create_element(document, "section", "stack-panel");
-    append_text(document, &panel, "p", "stack-label", "Briscola");
+    let panel = create_element(document, "section", "stack-panel trump-panel");
+    append_text(document, &panel, "p", "stack-label", "TRUMP");
     if deck_size == 0 {
         panel
             .append_child(&render_placeholder_card(document))
             .expect("briscola placeholder should be appended");
-        append_text(
-            document,
-            &panel,
-            "p",
-            "stack-caption",
-            "Trump suit; the visible card has been drawn",
-        );
+        append_text(document, &panel, "p", "stack-caption", "drawn");
     } else {
         panel
             .append_child(&render_card_svg(document, briscola))
             .expect("briscola card should be appended");
-        append_text(
-            document,
-            &panel,
-            "p",
-            "stack-caption",
-            "Visible trump card, drawn last",
-        );
+        append_text(document, &panel, "p", "stack-caption", "last card");
     }
     panel
 }
 
 fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     set_styles(document);
-    let body = document.body().expect("document body should exist");
-    body.set_inner_html("");
+    let mount = mount_element(document);
+    mount.set_inner_html("");
 
     let state_ref = state.borrow();
+    mount.set_class_name(&app_class_name(document, state_ref.fill_screen));
     let (score1, score2) = state_ref.scores();
 
     let dashboard = create_element(document, "main", "dashboard");
@@ -929,7 +1159,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         &title_wrap,
         "p",
         "table-subtitle",
-        "Player 1 is controlled from this browser",
+        "wasm / browser game",
     );
     header
         .append_child(&title_wrap)
@@ -948,15 +1178,18 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         &header_rail,
         "div",
         "header-pill",
-        &format!("Player 1: {} pts", score1),
+        &format!("YOU: {} pts", score1),
     );
     append_text(
         document,
         &header_rail,
         "div",
         "header-pill",
-        &format!("Player 2: {} pts", score2),
+        &format!("CHALLENGER: {} pts", score2),
     );
+    header_rail
+        .append_child(&build_controls(document, Rc::clone(&state)))
+        .expect("controls should be appended");
     header
         .append_child(&header_rail)
         .expect("header rail should be appended");
@@ -965,10 +1198,16 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     board
         .append_child(&build_player_zone(
             document,
-            &format!("Player 2 • {} cards", state_ref.player2_hand.len()),
+            &format!(
+                "CHALLENGER [{}] / {} cards",
+                state_ref.ai_difficulty.label(),
+                state_ref.player2_hand.len()
+            ),
+            2,
             &state_ref.player2_hand,
             false,
             false,
+            state_ref.last_dealt_player == Some(2),
             Rc::clone(&state),
         ))
         .expect("player 2 zone should be appended");
@@ -994,10 +1233,12 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     board
         .append_child(&build_player_zone(
             document,
-            &format!("Player 1 • {} cards", state_ref.player1_hand.len()),
+            &format!("YOU / {} cards", state_ref.player1_hand.len()),
+            1,
             &state_ref.player1_hand,
             true,
             state_ref.waiting_for_player1(),
+            state_ref.last_dealt_player == Some(1),
             Rc::clone(&state),
         ))
         .expect("player 1 zone should be appended");
@@ -1008,7 +1249,14 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         &footer,
         "div",
         "footer-pill",
-        &format!("Leader: Player {}", state_ref.leader_index()),
+        &format!(
+            "LEADER: {}",
+            if state_ref.leader_index() == 1 {
+                "YOU"
+            } else {
+                "CHALLENGER"
+            }
+        ),
     );
     append_text(
         document,
@@ -1016,13 +1264,13 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         "div",
         "footer-pill",
         &format!(
-            "Won cards: {} / {}",
+            "WON: {} / {}",
             state_ref.player1_won.len(),
             state_ref.player2_won.len()
         ),
     );
     if state_ref.waiting_for_player1() {
-        append_text(document, &footer, "div", "footer-pill action", "Your move");
+        append_text(document, &footer, "div", "footer-pill action", "YOUR MOVE");
     }
 
     dashboard
@@ -1035,14 +1283,18 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         .append_child(&footer)
         .expect("footer should be appended");
 
-    body.append_child(&dashboard)
+    mount
+        .append_child(&dashboard)
         .expect("dashboard should be appended");
+
+    drop(state_ref);
+    state.borrow_mut().last_dealt_player = None;
 }
 
-fn schedule_next_tick(state: Rc<RefCell<BrowserGame>>, delay_ms: i32) {
+fn schedule_next_tick(state: Rc<RefCell<BrowserGame>>, delay_ms: i32, tick_generation: u32) {
     let callback_state = Rc::clone(&state);
     let callback = Closure::<dyn FnMut()>::wrap(Box::new(move || {
-        tick(Rc::clone(&callback_state));
+        tick(Rc::clone(&callback_state), tick_generation);
     }) as Box<dyn FnMut()>);
 
     window()
@@ -1065,11 +1317,16 @@ fn select_player1_card(state: Rc<RefCell<BrowserGame>>, selected: usize) {
     render_dashboard(&document(), Rc::clone(&state));
 
     if let Some(delay_ms) = next_delay {
-        schedule_next_tick(state, delay_ms);
+        let tick_generation = state.borrow().tick_generation();
+        schedule_next_tick(state, delay_ms, tick_generation);
     }
 }
 
-fn tick(state: Rc<RefCell<BrowserGame>>) {
+fn tick(state: Rc<RefCell<BrowserGame>>, tick_generation: u32) {
+    if state.borrow().tick_generation() != tick_generation {
+        return;
+    }
+
     let next_delay = {
         let mut game = state.borrow_mut();
         let delay = game.advance();
@@ -1079,7 +1336,7 @@ fn tick(state: Rc<RefCell<BrowserGame>>) {
     render_dashboard(&document(), Rc::clone(&state));
 
     if let Some(delay_ms) = next_delay {
-        schedule_next_tick(state, delay_ms);
+        schedule_next_tick(state, delay_ms, tick_generation);
     }
 }
 
@@ -1212,5 +1469,5 @@ fn card_svg(card: card::Card) -> &'static str {
 pub fn run_app() {
     let state = Rc::new(RefCell::new(BrowserGame::new()));
     render_dashboard(&document(), Rc::clone(&state));
-    schedule_next_tick(state, 500);
+    schedule_next_tick(state, 500, 0);
 }

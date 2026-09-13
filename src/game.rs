@@ -4,6 +4,7 @@ use crate::deck;
 use crate::game;
 use crate::painter;
 use crate::player;
+use crate::rules;
 
 extern crate rand;
 use rand::Rng;
@@ -93,19 +94,7 @@ where
     }
 
     pub fn wins_first(&self, card1: card::Card, card2: card::Card) -> bool {
-        if card1.suit == self.briscola.suit {
-            if card2.suit != self.briscola.suit {
-                true
-            } else {
-                card1.value.eval() > card2.value.eval()
-            }
-        } else {
-            if card2.suit == self.briscola.suit {
-                false
-            } else {
-                card1.value.eval() > card2.value.eval()
-            }
-        }
+        rules::wins_first(card1, card2, self.briscola.suit)
     }
 
     pub fn turn(&mut self, initial: bool) {

@@ -2,6 +2,7 @@ use crate::card;
 
 use crate::game;
 use crate::hand;
+use crate::rules;
 use rand::Rng;
 use std::cell::Cell;
 
@@ -77,17 +78,7 @@ where
 
     pub fn calculate_score(&self) -> u8 {
         let cards_won = self.cards_won.take();
-        let score = cards_won
-            .iter()
-            .map(|card| match card.value.eval() {
-                1u8 => 11u8,
-                3u8 => 10u8,
-                8u8 => 2u8,
-                9u8 => 3u8,
-                10u8 => 4u8,
-                _ => 0u8,
-            })
-            .sum();
+        let score = rules::calculate_score(&cards_won);
         self.cards_won.set(cards_won);
         score
     }
