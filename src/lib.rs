@@ -49,6 +49,7 @@ struct BrowserGame {
     ai_difficulty: ai::AiDifficulty,
     fill_screen: bool,
     last_dealt_player: Option<usize>,
+    last_played_player: Option<usize>,
     tick_generation: u32,
 }
 
@@ -80,6 +81,7 @@ impl BrowserGame {
             ai_difficulty: ai::AiDifficulty::Challenger,
             fill_screen: false,
             last_dealt_player: None,
+            last_played_player: None,
             tick_generation: 0,
         }
     }
@@ -150,6 +152,7 @@ impl BrowserGame {
         let selected = ai::choose_card(difficulty, visible_state, hand);
         let card = hand.remove(selected);
         self.trick_cards.push((player_index, card));
+        self.last_played_player = Some(player_index);
     }
 
     fn restart(&mut self) {
@@ -190,6 +193,7 @@ impl BrowserGame {
 
         let card = self.player1_hand.remove(selected);
         self.trick_cards.push((1, card));
+        self.last_played_player = Some(1);
 
         match self.phase {
             Phase::Lead => {
@@ -743,6 +747,14 @@ fn set_styles(document: &Document) {
             animation: deal-to-you 280ms cubic-bezier(.2, .8, .2, 1) both;
         }
 
+        .briscola-app .played-card-from-challenger {
+            animation: play-from-challenger 320ms cubic-bezier(.16, .9, .24, 1) both;
+        }
+
+        .briscola-app .played-card-from-you {
+            animation: play-from-you 320ms cubic-bezier(.16, .9, .24, 1) both;
+        }
+
         @keyframes deal-to-challenger {
             from {
                 opacity: .35;
@@ -758,6 +770,28 @@ fn set_styles(document: &Document) {
             from {
                 opacity: .35;
                 transform: translateY(-145px) scale(.92);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes play-from-challenger {
+            from {
+                opacity: .35;
+                transform: translateY(-90px) scale(.9);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes play-from-you {
+            from {
+                opacity: .35;
+                transform: translateY(90px) scale(.9);
             }
             to {
                 opacity: 1;
@@ -1100,18 +1134,32 @@ fn build_deck_panel(document: &Document, deck_size: usize) -> Element {
     panel
 }
 
-fn build_trick_panel(document: &Document, trick_cards: &[(usize, card::Card)]) -> Element {
+fn build_trick_panel(
+    document: &Document,
+    trick_cards: &[(usize, card::Card)],
+    last_played_player: Option<usize>,
+) -> Element {
     let panel = create_element(document, "section", "stack-panel trick-panel");
     append_text(document, &panel, "p", "stack-label", "TRICK");
 
     let slots = create_element(document, "div", "trick-slots");
     for player_index in [2usize, 1usize] {
         let slot = create_element(document, "div", "trick-slot");
-        let card_node = trick_cards
+        let played_card = trick_cards
             .iter()
             .find(|(owner, _)| *owner == player_index)
-            .map(|(_, card)| render_card_svg(document, *card))
+            .map(|(_, card)| *card);
+        let card_node = played_card
+            .map(|card| render_card_svg(document, card))
             .unwrap_or_else(|| render_placeholder_card(document));
+        if played_card.is_some() && last_played_player == Some(player_index) {
+            let played_class = if player_index == 1 {
+                "played-card-from-you"
+            } else {
+                "played-card-from-challenger"
+            };
+            card_node.set_class_name(&format!("{} {}", card_node.class_name(), played_class));
+        }
 
         slot.append_child(&card_node)
             .expect("trick card should be appended");
@@ -1232,7 +1280,11 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         .append_child(&build_deck_panel(document, state_ref.deck_size))
         .expect("deck panel should be appended");
     middle
-        .append_child(&build_trick_panel(document, &state_ref.trick_cards))
+        .append_child(&build_trick_panel(
+            document,
+            &state_ref.trick_cards,
+            state_ref.last_played_player,
+        ))
         .expect("trick panel should be appended");
     middle
         .append_child(&build_trump_panel(
@@ -1303,7 +1355,11 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         .expect("dashboard should be appended");
 
     drop(state_ref);
-    state.borrow_mut().last_dealt_player = None;
+    {
+        let mut game = state.borrow_mut();
+        game.last_dealt_player = None;
+        game.last_played_player = None;
+    }
 }
 
 fn schedule_next_tick(state: Rc<RefCell<BrowserGame>>, delay_ms: i32, tick_generation: u32) {
