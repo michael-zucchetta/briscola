@@ -606,6 +606,7 @@ fn set_styles(document: &Document) {
             background: var(--terminal-panel);
             display: grid;
             justify-items: center;
+            align-content: center;
             min-width: 0;
         }
 
@@ -680,6 +681,15 @@ fn set_styles(document: &Document) {
             color: var(--terminal-muted);
             font-size: 11px;
             line-height: 1.3;
+        }
+
+        .briscola-app .trump-panel::after {
+            content: "";
+            display: block;
+            height: 1.1em;
+            margin-top: 8px;
+            font-size: 18px;
+            line-height: 1.1;
         }
 
         .briscola-app .card-shell,
@@ -819,6 +829,11 @@ fn set_styles(document: &Document) {
             .briscola-app .stack-caption {
                 margin-top: 2px;
                 font-size: 10px;
+            }
+
+            .briscola-app .trump-panel::after {
+                margin-top: 4px;
+                font-size: 14px;
             }
 
             .briscola-app .header-rail {
@@ -1091,6 +1106,14 @@ fn build_trick_panel(document: &Document, trick_cards: &[(usize, card::Card)]) -
     let slots = create_element(document, "div", "trick-slots");
     for player_index in [2usize, 1usize] {
         let slot = create_element(document, "div", "trick-slot");
+        let card_node = trick_cards
+            .iter()
+            .find(|(owner, _)| *owner == player_index)
+            .map(|(_, card)| render_card_svg(document, *card))
+            .unwrap_or_else(|| render_placeholder_card(document));
+
+        slot.append_child(&card_node)
+            .expect("trick card should be appended");
         append_text(
             document,
             &slot,
@@ -1102,15 +1125,6 @@ fn build_trick_panel(document: &Document, trick_cards: &[(usize, card::Card)]) -
                 "CHALLENGER"
             },
         );
-
-        let card_node = trick_cards
-            .iter()
-            .find(|(owner, _)| *owner == player_index)
-            .map(|(_, card)| render_card_svg(document, *card))
-            .unwrap_or_else(|| render_placeholder_card(document));
-
-        slot.append_child(&card_node)
-            .expect("trick card should be appended");
         slots
             .append_child(&slot)
             .expect("trick slot should be appended");
