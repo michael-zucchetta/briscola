@@ -50,5 +50,8 @@ fn main() {
         console::Console::new([player1, player2]),
     );
     let player_won = game.game();
-    println!("Player {} won", player_won);
+    match player_won {
+        Some(player) => println!("Player {} won", player),
+        None => println!("Draw"),
+    }
 }

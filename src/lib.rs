@@ -256,12 +256,16 @@ impl BrowserGame {
         )
     }
 
-    fn game_winner(&self) -> usize {
+    fn game_winner(&self) -> Option<usize> {
         let (score1, score2) = self.scores();
-        if score1 > score2 {
-            1
-        } else {
-            2
+        rules::winner_from_scores(score1, score2)
+    }
+
+    fn result_label(&self) -> &'static str {
+        match self.game_winner() {
+            Some(1) => "You win!",
+            Some(_) => "Challenger wins!",
+            None => "Draw",
         }
     }
 
@@ -338,12 +342,7 @@ impl BrowserGame {
                 {
                     self.phase = Phase::Finished;
                     let (score1, score2) = self.scores();
-                    self.status = format!(
-                        "game / {} wins / {}-{}",
-                        Self::player_sentence_label(self.game_winner()),
-                        score1,
-                        score2
-                    );
+                    self.status = format!("game / {} / {}-{}", self.result_label(), score1, score2);
                     None
                 } else if self.deck_size > 0 {
                     self.draw_first_player = winner;
@@ -421,6 +420,42 @@ fn set_styles(document: &Document) {
             background: var(--terminal-bg);
             color: var(--terminal-text);
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+        }
+
+        .briscola-app .table-board { position: relative; }
+        .briscola-app .victory-layer {
+            position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+            z-index: 2; display: grid; place-items: center;
+        }
+        .briscola-app .victory-result {
+            text-align: center; padding: 20px; border: 1px solid var(--terminal-active);
+            background: var(--terminal-panel); color: var(--terminal-text);
+            position: relative; z-index: 1;
+        }
+        .briscola-app .victory-result h2 { margin: 0 0 10px; }
+        .briscola-app .victory-result p { margin: 0; }
+        .briscola-app .firework-burst { position: absolute; width: 8px; height: 8px; }
+        .briscola-app .firework-burst:nth-child(1) { left: 24%; top: 24%; }
+        .briscola-app .firework-burst:nth-child(2) { left: 52%; top: 18%; }
+        .briscola-app .firework-burst:nth-child(3) { left: 76%; top: 30%; }
+        .briscola-app .firework-burst span {
+            position: absolute; width: 6px; height: 6px; border-radius: 50%;
+            background: var(--terminal-green); opacity: 0;
+            animation: briscola-spark-pop 1600ms ease-out 3 both;
+        }
+        .briscola-app .firework-burst span:nth-child(3n + 1) { background: var(--terminal-cyan); }
+        .briscola-app .firework-burst span:nth-child(3n + 2) { background: var(--terminal-amber); }
+        @keyframes briscola-spark-pop {
+            0% { opacity: 0; transform: rotate(var(--angle)) translateX(0) scale(.4); }
+            16% { opacity: .95; }
+            100% { opacity: 0; transform: rotate(var(--angle)) translateX(var(--distance)) scale(.8); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .briscola-app .firework-burst { display: none; }
+            .briscola-app .dealt-card-to-you, .briscola-app .dealt-card-to-challenger,
+            .briscola-app .played-card-from-you, .briscola-app .played-card-from-challenger {
+                animation: none;
+            }
         }
 
         .briscola-app.theme-white {
@@ -979,7 +1014,8 @@ fn render_card_button(
     button
         .add_event_listener_with_callback("click", callback.as_ref().unchecked_ref())
         .expect("card click handler should be attached");
-    callback.forget();
+    // Let JavaScript reclaim the callback when its DOM node is removed.
+    let _ = callback.into_js_value();
     button
 }
 
@@ -1002,7 +1038,8 @@ where
     button
         .add_event_listener_with_callback("click", callback.as_ref().unchecked_ref())
         .expect("button click handler should be attached");
-    callback.forget();
+    // Let JavaScript reclaim the callback when its DOM node is removed.
+    let _ = callback.into_js_value();
     button
 }
 
@@ -1203,6 +1240,45 @@ fn build_trump_panel(document: &Document, briscola: card::Card, deck_size: usize
     panel
 }
 
+fn build_result(document: &Document, game: &BrowserGame) -> Element {
+    let layer = create_element(document, "div", "victory-layer");
+    if game.game_winner().is_some() {
+        for burst in 0..3 {
+            let firework = create_element(document, "div", "firework-burst");
+            firework.set_attribute("aria-hidden", "true").unwrap();
+            for spark in 0..12 {
+                let particle = create_element(document, "span", "");
+                particle
+                    .set_attribute(
+                        "style",
+                        &format!(
+                            "--angle: {}deg; --distance: {}px; animation-delay: {}ms",
+                            spark * 30,
+                            34 + burst * 8,
+                            burst * 160,
+                        ),
+                    )
+                    .unwrap();
+                firework.append_child(&particle).unwrap();
+            }
+            layer.append_child(&firework).unwrap();
+        }
+    }
+    let result = create_element(document, "div", "victory-result");
+    result.set_attribute("role", "status").unwrap();
+    append_text(document, &result, "h2", "", game.result_label());
+    let (you, challenger) = game.scores();
+    append_text(
+        document,
+        &result,
+        "p",
+        "",
+        &format!("You {} — Challenger {}", you, challenger),
+    );
+    layer.append_child(&result).unwrap();
+    layer
+}
+
 fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     set_styles(document);
     let mount = mount_element(document);
@@ -1310,6 +1386,12 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         ))
         .expect("player 1 zone should be appended");
 
+    if matches!(state_ref.phase, Phase::Finished) {
+        board
+            .append_child(&build_result(document, &state_ref))
+            .unwrap();
+    }
+
     let footer = create_element(document, "footer", "footer-bar");
     append_text(
         document,
@@ -1364,19 +1446,14 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
 
 fn schedule_next_tick(state: Rc<RefCell<BrowserGame>>, delay_ms: i32, tick_generation: u32) {
     let callback_state = Rc::clone(&state);
-    let callback = Closure::<dyn FnMut()>::wrap(Box::new(move || {
+    let callback = Closure::once_into_js(move || {
         tick(Rc::clone(&callback_state), tick_generation);
-    }) as Box<dyn FnMut()>);
+    });
 
     window()
         .expect("window should exist")
-        .set_timeout_with_callback_and_timeout_and_arguments_0(
-            callback.as_ref().unchecked_ref(),
-            delay_ms,
-        )
+        .set_timeout_with_callback_and_timeout_and_arguments_0(callback.unchecked_ref(), delay_ms)
         .expect("timeout should be scheduled");
-
-    callback.forget();
 }
 
 fn select_player1_card(state: Rc<RefCell<BrowserGame>>, selected: usize) {
@@ -1541,4 +1618,66 @@ pub fn run_app() {
     let state = Rc::new(RefCell::new(BrowserGame::new()));
     render_dashboard(&document(), Rc::clone(&state));
     schedule_next_tick(state, 500, 0);
+}
+
+#[cfg(test)]
+mod browser_tests {
+    use super::*;
+
+    #[test]
+    fn complete_games_conserve_cards_and_points() {
+        for difficulty in [ai::AiDifficulty::Random, ai::AiDifficulty::Challenger] {
+            for _ in 0..50 {
+                let mut game = BrowserGame::new();
+                game.ai_difficulty = difficulty;
+                let mut steps = 0;
+                while !matches!(game.phase, Phase::Finished) {
+                    let cards = game.player1_hand.len()
+                        + game.player2_hand.len()
+                        + game.player1_won.len()
+                        + game.player2_won.len()
+                        + game.trick_cards.len()
+                        + game.deck_size;
+                    assert_eq!(cards, 40);
+                    assert!(game.player1_hand.len() <= 3 && game.player2_hand.len() <= 3);
+                    if game.waiting_for_player1() {
+                        assert!(game.play_player1_card(0).is_some());
+                    } else {
+                        game.advance();
+                    }
+                    steps += 1;
+                    assert!(steps < 250, "game must terminate");
+                }
+                assert_eq!(game.trick_number, 21);
+                assert_eq!(game.scores().0 + game.scores().1, 120);
+                let mut won = game.player1_won.clone();
+                won.extend(&game.player2_won);
+                for card in card::Card::load_cards() {
+                    assert_eq!(won.iter().filter(|&&c| c == card).count(), 1);
+                }
+                assert!(game.advance().is_none());
+                assert!(game.play_player1_card(0).is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn tied_result_and_restart() {
+        let mut game = BrowserGame::new();
+        let cards = card::Card::load_cards();
+        game.player1_won = cards[..20].to_vec();
+        game.player2_won = cards[20..].to_vec();
+        game.phase = Phase::Finished;
+        assert_eq!(game.scores(), (60, 60));
+        assert_eq!(game.game_winner(), None);
+        assert_eq!(game.result_label(), "Draw");
+        game.ai_difficulty = ai::AiDifficulty::Random;
+        game.fill_screen = true;
+        game.restart();
+        assert_eq!(game.tick_generation(), 1);
+        assert!(matches!(game.phase, Phase::Dealing));
+        assert_eq!(game.scores(), (0, 0));
+        assert_eq!(game.ai_difficulty, ai::AiDifficulty::Random);
+        assert!(game.fill_screen);
+    }
 }

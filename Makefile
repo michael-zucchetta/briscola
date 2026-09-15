@@ -32,3 +32,10 @@ verify-firefox: build
 	curl -I http://127.0.0.1:8001/; \
 	env MOZ_HEADLESS=1 MOZ_WEBRENDER=0 LIBGL_ALWAYS_SOFTWARE=1 timeout 30s firefox --headless --new-instance --profile /tmp/briscola-firefox-profile --window-size=1280,900 --screenshot /tmp/briscola-firefox.png http://127.0.0.1:8001/; \
 	test -s /tmp/briscola-firefox.png
+
+.PHONY: test-visual update-visual-baselines
+test-visual: build
+	python3 scripts/test_visual.py
+
+update-visual-baselines: build
+	python3 scripts/test_visual.py --update-baselines

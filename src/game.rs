@@ -38,14 +38,6 @@ where
     T: painter::Painter,
     Y: game::UserInput,
 {
-    fn winner_from_scores(score1: u8, score2: u8) -> usize {
-        if score1 > score2 {
-            1
-        } else {
-            2
-        }
-    }
-
     pub fn new(
         players_size: PlayersSize,
         player_types: [player::PlayerType; 2],
@@ -78,9 +70,17 @@ where
         }
     }
 
+    fn draw_order(&self) -> [usize; 2] {
+        match self.player_turn {
+            PlayerTurn::Player1 => [0, 1],
+            PlayerTurn::Player2 => [1, 0],
+        }
+    }
+
     fn assign_cards(&self, initial: bool) {
         // constants.HAND_SIZE
-        for player in self.players.iter() {
+        for index in self.draw_order() {
+            let player = &self.players[index];
             if initial {
                 let mut hand = Vec::with_capacity(3);
                 for _ in 0..constants::HAND_SIZE {
@@ -144,7 +144,7 @@ where
         }
     }
 
-    pub fn game(&mut self) -> usize {
+    pub fn game(&mut self) -> Option<usize> {
         println!("Beginning game");
         let mut i = 0u8;
         while !self.deck.is_deck_empty() {
@@ -156,7 +156,7 @@ where
         let score2 = self.players.get(1).unwrap().calculate_score();
         println!("Player 1 score is {}", score1);
         println!("Player 2 score is {}", score2);
-        Self::winner_from_scores(score1, score2)
+        rules::winner_from_scores(score1, score2)
     }
 }
 
@@ -172,20 +172,34 @@ mod tests {
 
     #[test]
     fn winner_from_scores_returns_player_one() {
-        let winner = Game::<console::ConsolePainter, console::Console>::winner_from_scores(70, 50);
-        assert_eq!(winner, 1);
+        let winner = rules::winner_from_scores(70, 50);
+        assert_eq!(winner, Some(1));
     }
 
     #[test]
     fn winner_from_scores_returns_player_two() {
-        let winner = Game::<console::ConsolePainter, console::Console>::winner_from_scores(50, 70);
-        assert_eq!(winner, 2);
+        let winner = rules::winner_from_scores(50, 70);
+        assert_eq!(winner, Some(2));
     }
 
     #[test]
-    fn winner_from_scores_never_returns_zero() {
-        let winner = Game::<console::ConsolePainter, console::Console>::winner_from_scores(70, 50);
-        assert_ne!(winner, 0);
+    fn equal_scores_are_a_draw() {
+        let winner = rules::winner_from_scores(60, 60);
+        assert_eq!(winner, None);
+    }
+
+    #[test]
+    fn trick_winner_draws_first() {
+        let mut game = Game::new(
+            PlayersSize::Two,
+            [player::PlayerType::AI, player::PlayerType::AI],
+            console::ConsolePainter::new(),
+            console::Console::new([player::PlayerType::AI, player::PlayerType::AI]),
+        );
+        game.player_turn = PlayerTurn::Player2;
+        assert_eq!(game.draw_order(), [1, 0]);
+        game.player_turn = PlayerTurn::Player1;
+        assert_eq!(game.draw_order(), [0, 1]);
     }
 
     #[test]
