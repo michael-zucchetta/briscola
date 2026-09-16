@@ -10,16 +10,16 @@ wasm-pack:
 
 build:
 	CARGO_HOME=$(CURDIR)/.cargo-home TMPDIR=/tmp CARGO_TARGET_DIR=/tmp/briscola-wasm-pack-target wasm-pack build --target web --out-name wasm --out-dir ./static
-	printf '%s\n' '*' '!.gitignore' '!index.html' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./static/.gitignore
+	printf '%s\n' '*' '!.gitignore' '!index.html' '!card-zoom.js' '!card-zoom.css' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./static/.gitignore
 
 build-production-white:
 	CARGO_HOME=$(CURDIR)/.cargo-home TMPDIR=/tmp CARGO_TARGET_DIR=/tmp/briscola-wasm-pack-target RUSTFLAGS="-C opt-level=3" wasm-pack build --release --target web --out-name wasm --out-dir ./static
-	printf '%s\n' '*' '!.gitignore' '!index.html' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./static/.gitignore
+	printf '%s\n' '*' '!.gitignore' '!index.html' '!card-zoom.js' '!card-zoom.css' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./static/.gitignore
 	sed -i '/<body /s/data-production-theme="[^"]*"/data-production-theme="white"/' static/index.html
 
 build-production-terminal:
 	CARGO_HOME=$(CURDIR)/.cargo-home TMPDIR=/tmp CARGO_TARGET_DIR=/tmp/briscola-wasm-pack-target RUSTFLAGS="-C opt-level=3" wasm-pack build --release --target web --out-name wasm --out-dir ./static
-	printf '%s\n' '*' '!.gitignore' '!index.html' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./static/.gitignore
+	printf '%s\n' '*' '!.gitignore' '!index.html' '!card-zoom.js' '!card-zoom.css' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./static/.gitignore
 	sed -i '/<body /s/data-production-theme="[^"]*"/data-production-theme="terminal"/' static/index.html
 
 serve: build

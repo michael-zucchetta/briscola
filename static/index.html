@@ -4,6 +4,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Briscola</title>
+        <link rel="stylesheet" href="./card-zoom.css">
         <style>
             html,
             body {
@@ -22,10 +23,13 @@
         </style>
         <script type="module">
             import init from "./wasm.js"
-            init()
+            import { installCardZoom } from "./card-zoom.js"
+            await init()
+            installCardZoom(document.getElementById("briscola-app"))
         </script>
     </head>
     <body data-production-theme="terminal">
         <div id="briscola-app"></div>
+        <p id="card-zoom-help" class="visually-hidden">Hover or focus a card to enlarge it. On touch screens, tap to enlarge, then tap the same card again to play. Tap outside or press Escape to close.</p>
     </body>
 </html>

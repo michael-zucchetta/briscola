@@ -554,6 +554,19 @@ fn set_styles(document: &Document) {
             line-height: 1.35;
         }
 
+        .briscola-app .trick-status {
+            padding: 7px 12px;
+            font-size: 16px;
+            font-weight: 700;
+            line-height: 1.4;
+            border-width: 2px;
+            background: #211900;
+        }
+
+        .briscola-app.theme-white .trick-status {
+            background: #fff5d6;
+        }
+
         .briscola-app .header-pill:first-child,
         .briscola-app .footer-pill.action {
             color: var(--terminal-amber);
@@ -908,6 +921,13 @@ fn set_styles(document: &Document) {
 
             .briscola-app .header-rail {
                 justify-content: flex-start;
+                min-width: 0;
+            }
+
+            .briscola-app .trick-status {
+                flex: 0 0 100%;
+                text-align: center;
+                overflow-wrap: anywhere;
             }
 
             .briscola-app .player-hand {
@@ -1309,7 +1329,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         document,
         &header_rail,
         "div",
-        "header-pill",
+        "header-pill trick-status",
         &state_ref.status,
     );
     append_text(
