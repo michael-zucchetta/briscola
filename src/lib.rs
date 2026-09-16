@@ -1657,7 +1657,14 @@ fn card_svg(card: card::Card) -> &'static str {
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
-    let state = Rc::new(RefCell::new(BrowserGame::new()));
+    let mut game = BrowserGame::new();
+    // Match the mobile CSS breakpoint on first load; subsequent renders and
+    // restarts preserve the user's Bigger View toggle choice.
+    game.fill_screen = window()
+        .and_then(|window| window.inner_width().ok())
+        .and_then(|width| width.as_f64())
+        .map_or(false, |width| width <= 720.0);
+    let state = Rc::new(RefCell::new(game));
     render_dashboard(&document(), Rc::clone(&state));
     schedule_next_tick(state, 500, 0);
 }
