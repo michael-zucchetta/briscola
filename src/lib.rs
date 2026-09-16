@@ -862,16 +862,28 @@ fn set_styles(document: &Document) {
         @media (max-width: 720px) {
             .briscola-app {
                 --card-width: clamp(30px, min(10vw, 9vh), 42px);
+                min-height: 100vh;
+                min-height: 100dvh;
             }
 
             .briscola-app.fill-screen {
-                --card-width: clamp(32px, min(11vw, 10vh), 46px);
+                --card-width: clamp(44px, min(16vw, 9.5vh), 78px);
+                --card-width: clamp(44px, min(16vw, 9.5dvh), 78px);
             }
 
             .briscola-app .dashboard {
-                min-height: 100%;
+                min-height: 100vh;
+                min-height: 100dvh;
                 padding: 6px;
                 gap: 8px;
+            }
+
+            .briscola-app.fill-screen,
+            .briscola-app.fill-screen .dashboard {
+                height: 100vh;
+                height: 100dvh;
+                min-height: 100vh;
+                min-height: 100dvh;
             }
 
             .briscola-app .table-header {
@@ -883,6 +895,16 @@ fn set_styles(document: &Document) {
                 justify-content: stretch;
                 width: 100%;
                 gap: 4px;
+            }
+
+            .briscola-app.fill-screen .table-middle {
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr) minmax(0, 1fr);
+            }
+
+            .briscola-app.fill-screen .table-board {
+                padding: 8px;
+                gap: 8px;
+                align-content: space-evenly;
             }
 
             .briscola-app .stack-panel {
