@@ -41,19 +41,20 @@ The build writes the WebAssembly package and browser demo into `demo/`.
 
 ### GitHub Pages
 
-Run `make github-pages` to build the white production theme and copy the website
-from `demo/` into `docs/`, including `.nojekyll`. Then commit and push the output:
+The live demo is served from the repository root. The root `index.html` loads the
+generated WebAssembly and browser assets from `demo/`. In GitHub repository
+settings, select **Settings → Pages → Deploy from a branch**, choose the branch
+you publish from, and select **/ (root)**.
 
 ```sh
-git add docs
-git commit -m "Publish Briscola static website"
+make build-production-white
+git add index.html demo
+git commit -m "Publish Briscola demo"
 git push
 ```
 
-In GitHub **Settings → Pages**, select **Deploy from a branch**, your pushed
-branch, and **/docs**. Run the target and commit the updated output whenever
-you want to publish changes. The target prepares files locally; it does not
-commit or push them.
+The `make github-pages` target remains available for producing a `/docs` package,
+but it is not required for the normal root-based Pages deployment.
 
 ## Test
 
