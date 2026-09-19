@@ -1,0 +1,18 @@
+{
+  "name": "briscola",
+  "type": "module",
+  "collaborators": [
+    "michael-zucchetta <michael.zucchetta@protonmail.com>"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "wasm_bg.wasm",
+    "wasm.js",
+    "wasm.d.ts"
+  ],
+  "main": "wasm.js",
+  "types": "wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

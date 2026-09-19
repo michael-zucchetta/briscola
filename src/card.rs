@@ -1,6 +1,5 @@
-
-use self::CardSuit::*;
 use self::CardNumber::*;
+use self::CardSuit::*;
 use std::slice::Iter;
 
 // allows printing
@@ -9,13 +8,13 @@ pub enum CardSuit {
     Cups,
     Batons,
     Coins,
-    Swords
+    Swords,
 }
 
 impl CardSuit {
     pub fn iterator() -> Iter<'static, CardSuit> {
-	static CARD_SUITS: [CardSuit; 4] = [Cups, Batons, Coins, Swords];
-	CARD_SUITS.iter()
+        static CARD_SUITS: [CardSuit; 4] = [Cups, Batons, Coins, Swords];
+        CARD_SUITS.iter()
     }
 }
 
@@ -28,14 +27,15 @@ pub enum CardNumber {
     Five,
     Six,
     Seven,
-    Knave, // Fante
+    Knave,  // Fante
     Knight, // Cavallo
-    King, //
+    King,   //
 }
 
 impl CardNumber {
     pub fn iterator() -> Iter<'static, CardNumber> {
-        static CARD_NUMBERS: [CardNumber; 10] = [Ace, Two, Three, Four, Five, Six, Seven, Knave, Knight, King];
+        static CARD_NUMBERS: [CardNumber; 10] =
+            [Ace, Two, Three, Four, Five, Six, Seven, Knave, Knight, King];
         CARD_NUMBERS.iter()
     }
 
@@ -50,7 +50,7 @@ impl CardNumber {
             Seven => 7u8,
             Knave => 8u8,
             Knight => 9u8,
-            King => 10u8
+            King => 10u8,
         }
     }
 }
@@ -58,28 +58,26 @@ impl CardNumber {
 #[derive(Clone, Copy, Debug)]
 pub struct Card {
     pub value: CardNumber,
-    pub suit: CardSuit
+    pub suit: CardSuit,
 }
 
 impl Card {
     pub fn new(value: CardNumber, suit: CardSuit) -> Card {
-	Card {
-	    value,
-	    suit,
-	}
+        Card { value, suit }
     }
 
-    pub fn load_cards() -> Vec<Card> {// &'static [Card] {
-        CardSuit::iterator().flat_map(move |&suit| {
-            CardNumber::iterator().map(move |&number|
-                 Card::new(number, suit)
-            )
-        }).collect::<Vec<Card>>()
+    pub fn load_cards() -> Vec<Card> {
+        // &'static [Card] {
+        CardSuit::iterator()
+            .flat_map(move |&suit| {
+                CardNumber::iterator().map(move |&number| Card::new(number, suit))
+            })
+            .collect::<Vec<Card>>()
     }
 }
 
 impl PartialEq for Card {
     fn eq(&self, other: &Self) -> bool {
-        self.value == other.value && self.suit ==  other.suit
+        self.value == other.value && self.suit == other.suit
     }
 }

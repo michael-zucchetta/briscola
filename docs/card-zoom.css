@@ -1,0 +1,30 @@
+.briscola-app .card-zoom {
+    position: fixed;
+    z-index: 100;
+    pointer-events: none;
+    filter: drop-shadow(0 8px 12px #0009);
+}
+.briscola-app .card-zoom img {
+    display: block;
+    width: 100%;
+}
+.briscola-app .card-zoom-hint {
+    height: 48px;
+    padding: 3px;
+    background: var(--terminal-panel);
+    color: var(--terminal-text);
+    border: 1px solid var(--terminal-active);
+    font: 11px/14px ui-monospace, monospace;
+    text-align: center;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
