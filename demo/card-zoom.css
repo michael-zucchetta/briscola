@@ -9,13 +9,34 @@
     width: 100%;
 }
 .briscola-app .card-zoom-hint {
-    height: 48px;
-    padding: 3px;
+    padding: 2px;
     background: var(--terminal-panel);
     color: var(--terminal-text);
     border: 1px solid var(--terminal-active);
     font: 11px/14px ui-monospace, monospace;
     text-align: center;
+}
+.briscola-app .card-zoom-instruction {
+    display: block;
+    margin-top: 1px;
+    color: var(--terminal-muted);
+}
+.briscola-app .card-zoom-name {
+    display: block;
+    padding: 0 2px;
+    border: 0;
+    background: #180605;
+    color: #ff554d;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-shadow: 0 0 5px #ff251e;
+    text-transform: uppercase;
+}
+
+.briscola-app.theme-white .card-zoom-name {
+    background: #fff;
+    color: #a32620;
+    text-shadow: none;
 }
 
 .visually-hidden {

@@ -8,11 +8,17 @@ export function installCardZoom(app) {
     picture.alt = '';
     const hint = document.createElement('div');
     hint.className = 'card-zoom-hint';
+    const cardName = document.createElement('span');
+    cardName.className = 'card-zoom-name';
+    const instruction = document.createElement('span');
+    instruction.className = 'card-zoom-instruction';
+    hint.append(cardName, instruction);
     preview.append(picture, hint);
     let source = null;
     let pinned = false;
     let gesture = null;
     let tap = null;
+    let tappedDifferentCard = null;
     let pointerType = '';
 
     function cardAt(target) {
@@ -33,10 +39,12 @@ export function installCardZoom(app) {
         // An isolated image avoids duplicate SVG IDs and pattern references.
         picture.src = 'data:image/svg+xml;charset=utf-8,' +
             encodeURIComponent(new XMLSerializer().serializeToString(svg));
-        hint.textContent = pin
+        cardName.textContent = card.dataset.cardName || 'Card';
+        instruction.textContent = pin
             ? (card.matches('.card-button') ? 'Tap card again to play' : 'Tap outside to close')
             : '';
-        hint.hidden = !pin;
+        instruction.hidden = !pin;
+        hint.hidden = false;
         const rect = card.getBoundingClientRect();
         const viewport = window.visualViewport;
         const left = viewport?.offsetLeft || 0;
@@ -44,7 +52,7 @@ export function installCardZoom(app) {
         const width = viewport?.width || innerWidth;
         const height = viewport?.height || innerHeight;
         const ratio = svg.viewBox.baseVal.width / svg.viewBox.baseVal.height || 0.5;
-        const captionHeight = pin ? 48 : 0;
+        const captionHeight = pin ? 38 : 22;
         const imageWidth = Math.max(1, Math.min(rect.width * 2.2, 240,
             width - 24, (height - 24 - captionHeight) * ratio));
         const totalHeight = imageWidth / ratio + captionHeight;
@@ -68,8 +76,10 @@ export function installCardZoom(app) {
     document.addEventListener('pointerdown', event => {
         pointerType = event.pointerType;
         tap = null;
+        const tappedCard = cardAt(event.target);
+        tappedDifferentCard = pinned && tappedCard && tappedCard !== source ? tappedCard : null;
         gesture = event.isPrimary && event.pointerType !== 'mouse'
-            ? {card: cardAt(event.target), x: event.clientX, y: event.clientY, id: event.pointerId}
+            ? {card: tappedCard, x: event.clientX, y: event.clientY, id: event.pointerId}
             : null;
     }, true);
     document.addEventListener('pointermove', event => {
@@ -88,14 +98,20 @@ export function installCardZoom(app) {
         const isTap = event.detail !== 0 && card && tap === card && pointerType !== 'mouse';
         tap = null;
         if (isTap) {
-            if (pinned && source === card) {
+            if (pinned && source !== card && tappedDifferentCard === card) {
+                tappedDifferentCard = null;
+                dismiss(); // Let the newly tapped card reach its game handler.
+            } else if (pinned && source === card) {
+                tappedDifferentCard = null;
                 dismiss(); // The original Rust click handler may now play it.
             } else {
+                tappedDifferentCard = null;
                 event.preventDefault();
                 event.stopImmediatePropagation();
                 show(card, true);
             }
         } else {
+            tappedDifferentCard = null;
             dismiss();
         }
     }, true);
