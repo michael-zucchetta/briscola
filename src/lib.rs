@@ -20,6 +20,7 @@ const FULL_DECK_SIZE: usize = 40;
 
 #[derive(Clone, Copy)]
 enum Phase {
+    CoinToss,
     Dealing,
     Lead,
     Follow,
@@ -72,8 +73,8 @@ impl BrowserGame {
             trick_cards: Vec::with_capacity(2),
             player_turn,
             pending_trick_winner: None,
-            phase: Phase::Dealing,
-            status: "shuffle / deal".to_string(),
+            phase: Phase::CoinToss,
+            status: "coin toss / deciding who plays first".to_string(),
             trick_number: 1,
             deck_size: FULL_DECK_SIZE,
             draw_first_player: 1,
@@ -105,15 +106,39 @@ impl BrowserGame {
         if player_index == 1 {
             "you"
         } else {
-            "challenger"
+            "ai"
         }
     }
 
-    fn player_sentence_label(player_index: usize) -> &'static str {
+    fn player_leads_label(player_index: usize) -> &'static str {
         if player_index == 1 {
-            "You"
+            "You lead"
         } else {
-            "Challenger"
+            "AI leads"
+        }
+    }
+
+    fn player_wins_label(player_index: usize) -> &'static str {
+        if player_index == 1 {
+            "You win"
+        } else {
+            "AI wins"
+        }
+    }
+
+    fn player_collects_label(player_index: usize) -> &'static str {
+        if player_index == 1 {
+            "You collect"
+        } else {
+            "AI collects"
+        }
+    }
+
+    fn player_draws_label(player_index: usize, draw_order: &'static str) -> String {
+        if player_index == 1 {
+            format!("You draw {draw_order}.")
+        } else {
+            format!("AI draws {draw_order}.")
         }
     }
 
@@ -264,13 +289,18 @@ impl BrowserGame {
     fn result_label(&self) -> &'static str {
         match self.game_winner() {
             Some(1) => "You win!",
-            Some(_) => "Challenger wins!",
+            Some(_) => "AI wins!",
             None => "Draw",
         }
     }
 
     fn advance(&mut self) -> Option<i32> {
         match self.phase {
+            Phase::CoinToss => {
+                self.phase = Phase::Dealing;
+                self.status = "shuffle / deal".to_string();
+                Some(320)
+            }
             Phase::Dealing => {
                 let dealt_cards = self.player1_hand.len() + self.player2_hand.len();
                 let next_player = if dealt_cards % 2 == 0 { 1 } else { 2 };
@@ -280,8 +310,8 @@ impl BrowserGame {
                 if dealt_total == constants::HAND_SIZE * 2 {
                     self.phase = Phase::Lead;
                     self.status = format!(
-                        "deal complete / {} leads",
-                        Self::player_sentence_label(self.leader_index())
+                        "deal complete / {}",
+                        Self::player_leads_label(self.leader_index())
                     );
                     Some(1200)
                 } else {
@@ -308,8 +338,8 @@ impl BrowserGame {
                 }
                 self.play_ai_card(player);
                 self.phase = Phase::Follow;
-                self.status = format!("trick {} / challenger leads", self.trick_number);
-                Some(1050)
+                self.status = format!("trick {} / AI leads", self.trick_number);
+                Some(1600)
             }
             Phase::Follow => {
                 let player = Self::other_player(self.leader_index());
@@ -319,17 +349,17 @@ impl BrowserGame {
                 }
                 self.play_ai_card(player);
                 self.phase = Phase::Resolve;
-                self.status = format!("trick {} / challenger answers", self.trick_number);
-                Some(1150)
+                self.status = format!("trick {} / AI answers", self.trick_number);
+                Some(1600)
             }
             Phase::Resolve => {
                 let winner = self.preview_trick_winner();
                 self.pending_trick_winner = Some(winner);
                 self.phase = Phase::Collect;
                 self.status = format!(
-                    "trick {} / {} wins",
+                    "trick {} / {}",
                     self.trick_number,
-                    Self::player_sentence_label(winner)
+                    Self::player_wins_label(winner)
                 );
                 Some(1200)
             }
@@ -349,14 +379,13 @@ impl BrowserGame {
                     self.draw_second_player = Self::other_player(winner);
                     self.phase = Phase::DrawPlayer1;
                     self.status = format!(
-                        "{} collects / winner draws first",
-                        Self::player_sentence_label(winner)
+                        "{} / winner draws first",
+                        Self::player_collects_label(winner)
                     );
                     Some(600)
                 } else {
                     self.phase = Phase::Lead;
-                    self.status =
-                        format!("deck empty / {} leads", Self::player_sentence_label(winner));
+                    self.status = format!("deck empty / {}", Self::player_leads_label(winner));
                     Some(1100)
                 }
             }
@@ -364,14 +393,14 @@ impl BrowserGame {
                 let player = self.draw_first_player;
                 self.deal_card_to(player);
                 self.phase = Phase::DrawPlayer2;
-                self.status = format!("{} draws first.", Self::player_sentence_label(player));
+                self.status = Self::player_draws_label(player, "first");
                 Some(600)
             }
             Phase::DrawPlayer2 => {
                 if self.deck_size > 0 {
                     let player = self.draw_second_player;
                     self.deal_card_to(player);
-                    self.status = format!("{} draws second.", Self::player_sentence_label(player));
+                    self.status = Self::player_draws_label(player, "second");
                 } else {
                     self.status = "deck empty / no second draw".to_string();
                 }
@@ -427,6 +456,50 @@ fn set_styles(document: &Document) {
             position: absolute; inset: 0; overflow: hidden; pointer-events: none;
             z-index: 2; display: grid; place-items: center;
         }
+        .briscola-app .coin-toss-layer {
+            position: absolute; inset: 0; z-index: 3; display: grid; place-items: center;
+            padding: 20px; background: color-mix(in srgb, var(--terminal-bg) 82%, transparent);
+        }
+        .briscola-app .coin-toss-modal {
+            width: min(320px, 100%); padding: 24px; text-align: center;
+            border: 1px solid var(--terminal-cyan); background: var(--terminal-panel);
+            box-shadow: 0 0 28px color-mix(in srgb, var(--terminal-cyan) 28%, transparent);
+        }
+        .briscola-app .coin-toss-modal h2 { margin: 0 0 14px; font-size: 16px; color: var(--terminal-cyan); }
+        .briscola-app .coin-toss-coin {
+            width: 58px; height: 87px; margin: 0 auto 16px; perspective: 600px;
+            animation: briscola-coin-toss 1500ms cubic-bezier(.2, .75, .3, 1) both;
+        }
+        .briscola-app .coin-toss-card {
+            position: relative; width: 58px; height: 87px; transform-style: preserve-3d;
+            transform-origin: center center;
+            animation: briscola-coin-flip-ai 1500ms ease-in-out both;
+        }
+        .briscola-app .coin-toss-face {
+            position: absolute; inset: 0; width: 58px; height: 87px; overflow: hidden;
+            backface-visibility: hidden; -webkit-backface-visibility: hidden;
+            transform: translateZ(.5px);
+        }
+        .briscola-app .coin-toss-face .card-shell {
+            width: 58px; min-width: 58px; height: 87px; aspect-ratio: auto;
+        }
+        .briscola-app .coin-toss-face.back { transform: rotateY(180deg) translateZ(.5px); }
+        .briscola-app .coin-toss-card.player-opens { animation-name: briscola-coin-flip-player; }
+        @keyframes briscola-coin-flip-ai {
+            0% { transform: rotateY(0deg); }
+            100% { transform: rotateY(1440deg); }
+        }
+        @keyframes briscola-coin-flip-player {
+            0% { transform: rotateY(0deg); }
+            100% { transform: rotateY(1620deg); }
+        }
+        .briscola-app .coin-toss-modal p { margin: 0; }
+        @keyframes briscola-coin-toss {
+            0% { opacity: 0; transform: translateY(85px) scale(.7); }
+            20% { opacity: 1; }
+            55% { transform: translateY(-72px) scale(1.08); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
         .briscola-app .victory-result {
             text-align: center; padding: 20px; border: 1px solid var(--terminal-active);
             background: var(--terminal-panel); color: var(--terminal-text);
@@ -453,7 +526,8 @@ fn set_styles(document: &Document) {
         @media (prefers-reduced-motion: reduce) {
             .briscola-app .firework-burst { display: none; }
             .briscola-app .dealt-card-to-you, .briscola-app .dealt-card-to-challenger,
-            .briscola-app .played-card-from-you, .briscola-app .played-card-from-challenger {
+            .briscola-app .played-card-from-you, .briscola-app .played-card-from-challenger,
+            .briscola-app .coin-toss-coin, .briscola-app .coin-toss-card {
                 animation: none;
             }
         }
@@ -538,6 +612,13 @@ fn set_styles(document: &Document) {
             flex-wrap: wrap;
             gap: 6px;
             align-items: center;
+        }
+
+        .briscola-app .control-label {
+            color: var(--terminal-muted);
+            font-size: 11px;
+            line-height: 1.2;
+            white-space: nowrap;
         }
 
         .briscola-app .header-rail {
@@ -861,14 +942,14 @@ fn set_styles(document: &Document) {
 
         @media (max-width: 720px) {
             .briscola-app {
-                --card-width: clamp(30px, min(10vw, 9vh), 42px);
+                --card-width: clamp(30px, min(9.75vw, 9vh), 42px);
                 min-height: 100vh;
                 min-height: 100dvh;
             }
 
             .briscola-app.fill-screen {
-                --card-width: clamp(44px, min(16vw, 9.5vh), 78px);
-                --card-width: clamp(44px, min(16vw, 9.5dvh), 78px);
+                --card-width: clamp(48px, min(18vw, 8.5vh), 78px);
+                --card-width: clamp(48px, min(18vw, 8.5dvh), 78px);
             }
 
             .briscola-app .dashboard {
@@ -1097,7 +1178,7 @@ fn build_controls(doc: &Document, state: Rc<RefCell<BrowserGame>>) -> Element {
             }
             render_dashboard(&document(), Rc::clone(&restart_state));
             let tick_generation = restart_state.borrow().tick_generation();
-            schedule_next_tick(Rc::clone(&restart_state), 500, tick_generation);
+            schedule_next_tick(Rc::clone(&restart_state), 1900, tick_generation);
         }))
         .expect("restart button should be appended");
 
@@ -1117,6 +1198,8 @@ fn build_controls(doc: &Document, state: Rc<RefCell<BrowserGame>>) -> Element {
         ))
         .expect("fill button should be appended");
 
+    append_text(doc, &controls, "span", "control-label", "AI difficulty:");
+
     for (label, difficulty) in [
         ("RANDOM", ai::AiDifficulty::Random),
         ("CHALLENGER", ai::AiDifficulty::Challenger),
@@ -1131,7 +1214,7 @@ fn build_controls(doc: &Document, state: Rc<RefCell<BrowserGame>>) -> Element {
                 }
                 render_dashboard(&document(), Rc::clone(&difficulty_state));
                 let tick_generation = difficulty_state.borrow().tick_generation();
-                schedule_next_tick(Rc::clone(&difficulty_state), 500, tick_generation);
+                schedule_next_tick(Rc::clone(&difficulty_state), 1900, tick_generation);
             }))
             .expect("difficulty button should be appended");
     }
@@ -1247,11 +1330,7 @@ fn build_trick_panel(
             &slot,
             "p",
             "trick-slot-label",
-            if player_index == 1 {
-                "YOU"
-            } else {
-                "CHALLENGER"
-            },
+            if player_index == 1 { "YOU" } else { "AI" },
         );
         slots
             .append_child(&slot)
@@ -1315,9 +1394,67 @@ fn build_result(document: &Document, game: &BrowserGame) -> Element {
         &result,
         "p",
         "",
-        &format!("You {} — Challenger {}", you, challenger),
+        &format!("You {} — AI {}", you, challenger),
     );
     layer.append_child(&result).unwrap();
+    layer
+}
+
+fn build_coin_toss(document: &Document, game: &BrowserGame) -> Element {
+    let layer = create_element(document, "section", "coin-toss-layer");
+    layer
+        .set_attribute("role", "status")
+        .expect("coin toss status role should be set");
+    layer
+        .set_attribute("aria-live", "polite")
+        .expect("coin toss live region should be set");
+
+    let modal = create_element(document, "div", "coin-toss-modal");
+    append_text(document, &modal, "h2", "", "COIN TOSS");
+    let coin = create_element(document, "div", "coin-toss-coin");
+    let card = create_element(
+        document,
+        "div",
+        if game.leader_index() == 1 {
+            "coin-toss-card player-opens"
+        } else {
+            "coin-toss-card ai-opens"
+        },
+    );
+    let denari_face = create_element(document, "div", "coin-toss-face front");
+    denari_face
+        .append_child(&render_card_svg(
+            document,
+            card::Card::new(card::CardNumber::Ace, card::CardSuit::Coins),
+        ))
+        .expect("ace of denari should be appended to coin");
+    let back_face = create_element(document, "div", "coin-toss-face back");
+    back_face
+        .append_child(&render_card_back(document))
+        .expect("card back should be appended to coin");
+    card.append_child(&denari_face)
+        .expect("denari face should be appended");
+    card.append_child(&back_face)
+        .expect("card back face should be appended");
+    coin.append_child(&card)
+        .expect("flipping card should be appended");
+    modal
+        .append_child(&coin)
+        .expect("coin toss card should be appended");
+    append_text(
+        document,
+        &modal,
+        "p",
+        "",
+        if game.leader_index() == 1 {
+            "You play first"
+        } else {
+            "AI plays first"
+        },
+    );
+    layer
+        .append_child(&modal)
+        .expect("coin toss modal should be appended");
     layer
 }
 
@@ -1334,7 +1471,25 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
 
     let header = create_element(document, "header", "table-header");
     let title_wrap = create_element(document, "div", "");
-    append_text(document, &title_wrap, "h1", "table-title", "Briscola");
+    let title = create_element(document, "h1", "table-title");
+    title.set_text_content(Some("Briscola "));
+    let github_reference = create_element(document, "a", "github-reference");
+    github_reference.set_text_content(Some("GitHub repo"));
+    github_reference
+        .set_attribute("href", "https://github.com/michael-zucchetta/briscola")
+        .expect("GitHub link should have a destination");
+    github_reference
+        .set_attribute("target", "_blank")
+        .expect("GitHub link should open in a new tab");
+    github_reference
+        .set_attribute("rel", "noopener noreferrer")
+        .expect("GitHub link should have safe external-link attributes");
+    title
+        .append_child(&github_reference)
+        .expect("GitHub link should be appended to the title");
+    title_wrap
+        .append_child(&title)
+        .expect("title should be appended");
     append_text(
         document,
         &title_wrap,
@@ -1366,7 +1521,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         &header_rail,
         "div",
         "header-pill",
-        &format!("CHALLENGER: {} pts", score2),
+        &format!("AI: {} pts", score2),
     );
     header_rail
         .append_child(&build_controls(document, Rc::clone(&state)))
@@ -1380,7 +1535,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         .append_child(&build_player_zone(
             document,
             &format!(
-                "CHALLENGER [{}] / {} cards",
+                "AI [{}] / {} cards",
                 state_ref.ai_difficulty.label(),
                 state_ref.player2_hand.len()
             ),
@@ -1428,7 +1583,11 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         ))
         .expect("player 1 zone should be appended");
 
-    if matches!(state_ref.phase, Phase::Finished) {
+    if matches!(state_ref.phase, Phase::CoinToss) {
+        board
+            .append_child(&build_coin_toss(document, &state_ref))
+            .expect("coin toss should be appended");
+    } else if matches!(state_ref.phase, Phase::Finished) {
         board
             .append_child(&build_result(document, &state_ref))
             .unwrap();
@@ -1445,7 +1604,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
             if state_ref.leader_index() == 1 {
                 "YOU"
             } else {
-                "CHALLENGER"
+                "AI"
             }
         ),
     );
@@ -1666,7 +1825,7 @@ pub fn run_app() {
         .map_or(false, |width| width <= 720.0);
     let state = Rc::new(RefCell::new(game));
     render_dashboard(&document(), Rc::clone(&state));
-    schedule_next_tick(state, 500, 0);
+    schedule_next_tick(state, 1900, 0);
 }
 
 #[cfg(test)]
@@ -1724,9 +1883,27 @@ mod browser_tests {
         game.fill_screen = true;
         game.restart();
         assert_eq!(game.tick_generation(), 1);
-        assert!(matches!(game.phase, Phase::Dealing));
+        assert!(matches!(game.phase, Phase::CoinToss));
         assert_eq!(game.scores(), (0, 0));
         assert_eq!(game.ai_difficulty, ai::AiDifficulty::Random);
         assert!(game.fill_screen);
+    }
+
+    #[test]
+    fn player_statuses_use_correct_verb_forms() {
+        assert_eq!(BrowserGame::player_leads_label(1), "You lead");
+        assert_eq!(BrowserGame::player_leads_label(2), "AI leads");
+        assert_eq!(BrowserGame::player_wins_label(1), "You win");
+        assert_eq!(BrowserGame::player_wins_label(2), "AI wins");
+        assert_eq!(BrowserGame::player_collects_label(1), "You collect");
+        assert_eq!(BrowserGame::player_collects_label(2), "AI collects");
+        assert_eq!(
+            BrowserGame::player_draws_label(1, "first"),
+            "You draw first."
+        );
+        assert_eq!(
+            BrowserGame::player_draws_label(2, "second"),
+            "AI draws second."
+        );
     }
 }
