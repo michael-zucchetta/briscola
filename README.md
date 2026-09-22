@@ -5,7 +5,7 @@
 This project is a Rust Briscola implementation with a WebAssembly browser UI. The browser build is designed to mount inside a small static page, so it can be served directly from `demo/` or embedded in a portfolio project page.
 
 
-## AI ipmplementation
+## AI implementation
 
 The current AI has two modes:
 

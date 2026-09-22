@@ -23,6 +23,7 @@ enum Phase {
     CoinToss,
     Dealing,
     Lead,
+    TrumpReveal,
     Follow,
     Resolve,
     Collect,
@@ -297,9 +298,9 @@ impl BrowserGame {
     fn advance(&mut self) -> Option<i32> {
         match self.phase {
             Phase::CoinToss => {
-                self.phase = Phase::Dealing;
-                self.status = "shuffle / deal".to_string();
-                Some(320)
+                self.phase = Phase::TrumpReveal;
+                self.status = format!("trump reveal / {}", trump_suit_name(self.briscola.suit));
+                Some(2200)
             }
             Phase::Dealing => {
                 let dealt_cards = self.player1_hand.len() + self.player2_hand.len();
@@ -340,6 +341,11 @@ impl BrowserGame {
                 self.phase = Phase::Follow;
                 self.status = format!("trick {} / AI leads", self.trick_number);
                 Some(1600)
+            }
+            Phase::TrumpReveal => {
+                self.phase = Phase::Dealing;
+                self.status = "shuffle / deal".to_string();
+                Some(320)
             }
             Phase::Follow => {
                 let player = Self::other_player(self.leader_index());
@@ -467,21 +473,35 @@ fn set_styles(document: &Document) {
         }
         .briscola-app .coin-toss-modal h2 { margin: 0 0 14px; font-size: 16px; color: var(--terminal-cyan); }
         .briscola-app .coin-toss-coin {
-            width: 58px; height: 87px; margin: 0 auto 16px; perspective: 600px;
+            width: 88px; height: 132px; margin: 0 auto 16px; perspective: 700px;
             animation: briscola-coin-toss 1500ms cubic-bezier(.2, .75, .3, 1) both;
         }
+        .briscola-app .trump-reveal-layer {
+            position: absolute; inset: 0; z-index: 3; display: grid; place-items: center;
+            padding: 20px; background: color-mix(in srgb, var(--terminal-bg) 82%, transparent);
+        }
+        .briscola-app .trump-reveal-modal {
+            width: min(320px, 100%); padding: 24px; text-align: center;
+            border: 1px solid var(--terminal-cyan); background: var(--terminal-panel);
+            box-shadow: 0 0 28px color-mix(in srgb, var(--terminal-cyan) 28%, transparent);
+        }
+        .briscola-app .trump-reveal-modal h2 { margin: 0 0 14px; font-size: 16px; color: var(--terminal-cyan); }
+        .briscola-app .trump-reveal-modal .card-shell {
+            width: 72px; min-width: 72px; margin: 0 auto 14px;
+        }
+        .briscola-app .trump-reveal-modal p { margin: 0; font-size: 15px; }
         .briscola-app .coin-toss-card {
-            position: relative; width: 58px; height: 87px; transform-style: preserve-3d;
+            position: relative; width: 88px; height: 132px; transform-style: preserve-3d;
             transform-origin: center center;
             animation: briscola-coin-flip-ai 1500ms ease-in-out both;
         }
         .briscola-app .coin-toss-face {
-            position: absolute; inset: 0; width: 58px; height: 87px; overflow: hidden;
+            position: absolute; inset: 0; width: 88px; height: 132px; overflow: hidden;
             backface-visibility: hidden; -webkit-backface-visibility: hidden;
             transform: translateZ(.5px);
         }
         .briscola-app .coin-toss-face .card-shell {
-            width: 58px; min-width: 58px; height: 87px; aspect-ratio: auto;
+            width: 88px; min-width: 88px; height: 132px; aspect-ratio: auto;
         }
         .briscola-app .coin-toss-face.back { transform: rotateY(180deg) translateZ(.5px); }
         .briscola-app .coin-toss-card.player-opens { animation-name: briscola-coin-flip-player; }
@@ -941,8 +961,12 @@ fn set_styles(document: &Document) {
         }
 
         @media (max-width: 720px) {
+            .briscola-app .bigger-view-toggle {
+                display: none;
+            }
+
             .briscola-app {
-                --card-width: clamp(30px, min(9.75vw, 9vh), 42px);
+                --card-width: clamp(40px, min(16vw, 13vh), 64px);
                 min-height: 100vh;
                 min-height: 100dvh;
             }
@@ -950,6 +974,7 @@ fn set_styles(document: &Document) {
             .briscola-app.fill-screen {
                 --card-width: clamp(48px, min(18vw, 8.5vh), 78px);
                 --card-width: clamp(48px, min(18vw, 8.5dvh), 78px);
+                --middle-card-width: clamp(76px, min(24vw, 14dvh), 100px);
             }
 
             .briscola-app .dashboard {
@@ -979,7 +1004,7 @@ fn set_styles(document: &Document) {
             }
 
             .briscola-app.fill-screen .table-middle {
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1.8fr) minmax(0, 1fr);
+                grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.3fr) minmax(0, 1.1fr);
             }
 
             .briscola-app.fill-screen .table-board {
@@ -1037,11 +1062,89 @@ fn set_styles(document: &Document) {
                 min-height: calc((var(--card-width) * 1.5) + 10px);
             }
 
+            .briscola-app .player-zone {
+                display: grid;
+                grid-template-columns: 42px minmax(0, 1fr);
+                align-items: center;
+                justify-items: stretch;
+                gap: 6px;
+                min-width: 0;
+            }
+
+            .briscola-app .player-zone .player-label {
+                text-align: left;
+            }
+
+            .briscola-app .player-hand {
+                min-width: 0;
+                flex-wrap: nowrap;
+                justify-content: center;
+                gap: 6px;
+            }
+
+            .briscola-app .player-hand > .card-shell,
+            .briscola-app .player-hand > .card-button {
+                width: calc((100% - 12px) / 3);
+                min-width: calc((100% - 12px) / 3);
+            }
+
             .briscola-app .card-shell,
             .briscola-app .card-button,
             .briscola-app .card-placeholder {
                 width: var(--card-width);
                 min-width: var(--card-width);
+            }
+
+            .briscola-app.fill-screen .player-hand > .card-shell,
+            .briscola-app.fill-screen .player-hand > .card-button {
+                width: calc((100% - 36px) / 3);
+                min-width: calc((100% - 36px) / 3);
+            }
+
+            .briscola-app.fill-screen .deck-stack,
+            .briscola-app.fill-screen .trick-stack {
+                width: var(--middle-card-width);
+                height: calc(var(--middle-card-width) * 1.5);
+            }
+
+            .briscola-app.fill-screen .deck-stack .card-shell {
+                width: 100%;
+                min-width: 0;
+            }
+
+            .briscola-app.fill-screen .trick-slots {
+                grid-template-columns: repeat(2, var(--middle-card-width));
+                gap: 2px;
+            }
+
+            .briscola-app.fill-screen .trick-slot > .card-shell,
+            .briscola-app.fill-screen .trick-slot > .card-placeholder,
+            .briscola-app.fill-screen .trick-slot > .card-button {
+                width: var(--middle-card-width);
+                min-width: var(--middle-card-width);
+            }
+
+            .briscola-app.fill-screen .trump-panel > .card-shell,
+            .briscola-app.fill-screen .trump-panel > .card-placeholder {
+                width: var(--middle-card-width);
+                min-width: var(--middle-card-width);
+            }
+
+            .briscola-app.fill-screen .stack-panel {
+                padding: 6px 3px;
+            }
+
+            .briscola-app.fill-screen .stack-label,
+            .briscola-app.fill-screen .trick-slot-label {
+                font-size: 14px;
+            }
+
+            .briscola-app.fill-screen .stack-count {
+                font-size: 18px;
+            }
+
+            .briscola-app.fill-screen .stack-caption {
+                font-size: 12px;
             }
         }
 
@@ -1110,6 +1213,13 @@ fn app_class_name(document: &Document, fill_screen: bool) -> String {
 
 fn render_card_svg(document: &Document, card: card::Card) -> Element {
     let card_shell = create_element(document, "div", "card-shell");
+    let name = card_name(card);
+    card_shell
+        .set_attribute("data-card-name", &name)
+        .expect("card name should be set");
+    card_shell
+        .set_attribute("aria-label", &name)
+        .expect("card label should be set");
     card_shell.set_inner_html(card_svg(card));
     card_shell
 }
@@ -1125,8 +1235,11 @@ fn render_card_button(
         .set_attribute("type", "button")
         .expect("button type should be set");
     button
-        .set_attribute("aria-label", &format!("Play card {}", selected + 1))
+        .set_attribute("aria-label", &format!("Play {}", card_name(card)))
         .expect("button label should be set");
+    button
+        .set_attribute("data-card-name", &card_name(card))
+        .expect("card name should be set");
     button.set_inner_html(card_svg(card));
 
     let callback_state = Rc::clone(&state);
@@ -1166,6 +1279,31 @@ where
     button
 }
 
+fn card_name(card: card::Card) -> String {
+    let number = match card.value {
+        card::CardNumber::Ace => "Ace".to_string(),
+        card::CardNumber::Two => "2".to_string(),
+        card::CardNumber::Three => "3".to_string(),
+        card::CardNumber::Four => "4".to_string(),
+        card::CardNumber::Five => "5".to_string(),
+        card::CardNumber::Six => "6".to_string(),
+        card::CardNumber::Seven => "7".to_string(),
+        card::CardNumber::Knave => "Knave".to_string(),
+        card::CardNumber::Knight => "Knight".to_string(),
+        card::CardNumber::King => "King".to_string(),
+    };
+    format!("{} of {}", number, trump_suit_name(card.suit))
+}
+
+fn trump_suit_name(suit: card::CardSuit) -> &'static str {
+    match suit {
+        card::CardSuit::Cups => "Cups",
+        card::CardSuit::Batons => "Batons",
+        card::CardSuit::Coins => "Denari",
+        card::CardSuit::Swords => "Swords",
+    }
+}
+
 fn build_controls(doc: &Document, state: Rc<RefCell<BrowserGame>>) -> Element {
     let controls = create_element(doc, "div", "control-row");
 
@@ -1183,19 +1321,26 @@ fn build_controls(doc: &Document, state: Rc<RefCell<BrowserGame>>) -> Element {
         .expect("restart button should be appended");
 
     let fill_state = Rc::clone(&state);
-    controls
-        .append_child(&render_action_button(
-            doc,
-            "BIGGER VIEW",
-            state.borrow().fill_screen,
-            move || {
-                {
-                    let mut game = fill_state.borrow_mut();
-                    game.toggle_fill_screen();
-                }
-                render_dashboard(&document(), Rc::clone(&fill_state));
+    let bigger_view =
+        render_action_button(doc, "BIGGER VIEW", state.borrow().fill_screen, move || {
+            {
+                let mut game = fill_state.borrow_mut();
+                game.toggle_fill_screen();
+            }
+            render_dashboard(&document(), Rc::clone(&fill_state));
+        });
+    bigger_view
+        .set_attribute(
+            "class",
+            if state.borrow().fill_screen {
+                "terminal-button active bigger-view-toggle"
+            } else {
+                "terminal-button bigger-view-toggle"
             },
-        ))
+        )
+        .expect("bigger view class should be set");
+    controls
+        .append_child(&bigger_view)
         .expect("fill button should be appended");
 
     append_text(doc, &controls, "span", "control-label", "AI difficulty:");
@@ -1208,10 +1353,7 @@ fn build_controls(doc: &Document, state: Rc<RefCell<BrowserGame>>) -> Element {
         let active = state.borrow().ai_difficulty == difficulty;
         controls
             .append_child(&render_action_button(doc, label, active, move || {
-                {
-                    let mut game = difficulty_state.borrow_mut();
-                    game.set_ai_difficulty(difficulty);
-                }
+                difficulty_state.borrow_mut().set_ai_difficulty(difficulty);
                 render_dashboard(&document(), Rc::clone(&difficulty_state));
                 let tick_generation = difficulty_state.borrow().tick_generation();
                 schedule_next_tick(Rc::clone(&difficulty_state), 1900, tick_generation);
@@ -1458,6 +1600,29 @@ fn build_coin_toss(document: &Document, game: &BrowserGame) -> Element {
     layer
 }
 
+fn build_trump_reveal(document: &Document, game: &BrowserGame) -> Element {
+    let layer = create_element(document, "section", "trump-reveal-layer");
+    layer.set_attribute("role", "status").unwrap();
+    layer.set_attribute("aria-live", "polite").unwrap();
+
+    let modal = create_element(document, "div", "trump-reveal-modal");
+    append_text(document, &modal, "h2", "", "TRUMP REVEALED");
+    modal
+        .append_child(&render_card_svg(document, game.briscola))
+        .expect("trump card should be appended to reveal");
+    append_text(
+        document,
+        &modal,
+        "p",
+        "",
+        &format!("The trump is {}", trump_suit_name(game.briscola.suit)),
+    );
+    layer
+        .append_child(&modal)
+        .expect("trump reveal modal should be appended");
+    layer
+}
+
 fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     set_styles(document);
     let mount = mount_element(document);
@@ -1509,20 +1674,6 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         "header-pill trick-status",
         &state_ref.status,
     );
-    append_text(
-        document,
-        &header_rail,
-        "div",
-        "header-pill",
-        &format!("YOU: {} pts", score1),
-    );
-    append_text(
-        document,
-        &header_rail,
-        "div",
-        "header-pill",
-        &format!("AI: {} pts", score2),
-    );
     header_rail
         .append_child(&build_controls(document, Rc::clone(&state)))
         .expect("controls should be appended");
@@ -1534,11 +1685,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     board
         .append_child(&build_player_zone(
             document,
-            &format!(
-                "AI [{}] / {} cards",
-                state_ref.ai_difficulty.label(),
-                state_ref.player2_hand.len()
-            ),
+            "AI",
             2,
             &state_ref.player2_hand,
             false,
@@ -1573,7 +1720,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     board
         .append_child(&build_player_zone(
             document,
-            &format!("YOU / {} cards", state_ref.player1_hand.len()),
+            "YOU",
             1,
             &state_ref.player1_hand,
             true,
@@ -1587,6 +1734,10 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         board
             .append_child(&build_coin_toss(document, &state_ref))
             .expect("coin toss should be appended");
+    } else if matches!(state_ref.phase, Phase::TrumpReveal) {
+        board
+            .append_child(&build_trump_reveal(document, &state_ref))
+            .expect("trump reveal should be appended");
     } else if matches!(state_ref.phase, Phase::Finished) {
         board
             .append_child(&build_result(document, &state_ref))
@@ -1607,6 +1758,20 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
                 "AI"
             }
         ),
+    );
+    append_text(
+        document,
+        &footer,
+        "div",
+        "footer-pill",
+        &format!("YOU: {} PTS", score1),
+    );
+    append_text(
+        document,
+        &footer,
+        "div",
+        "footer-pill",
+        &format!("AI: {} PTS", score2),
     );
     append_text(
         document,
