@@ -22,7 +22,7 @@ It does not inspect the opponent hand, count all previously played cards, search
 
 When Challenger leads a trick, it prefers the cheapest low-value non-trump card available. This avoids throwing away points or spending briscola cards before there is a reason to do so.
 
-When Challenger follows a trick, it checks whether it can win the lead card using the shared Briscola rules in `src/rules.rs`. If the lead card is worth points, Challenger tries to win it with the cheapest winning card. If the lead card has no points, or if Challenger cannot win, it discards the cheapest card available.
+When Challenger follows a trick, it checks whether it can win the lead card using the shared Briscola rules in `src/rules.rs`. If the lead card is worth points, the Challenger tries to win it with the cheapest winning card. If the lead card has no points, or if Challenger cannot win, it discards the cheapest card available.
 
 Card cost is based on two things:
 
@@ -41,7 +41,7 @@ The build writes the WebAssembly package and browser demo into `demo/`.
 
 ### GitHub Pages
 
-The live demo is served from the repository root. The root `index.html` loads the
+The demo static files are stored in the repository root. The root `index.html` loads the
 generated WebAssembly and browser assets from `demo/`. In GitHub repository
 settings, select **Settings → Pages → Deploy from a branch**, choose the branch
 you publish from, and select **/ (root)**.
@@ -61,10 +61,3 @@ but it is not required for the normal root-based Pages deployment.
 ```sh
 cargo test
 ```
-
-## Game results and browser verification
-
-After `make build`, run `python3 scripts/verify_firefox.py` for a Firefox smoke
-test covering full games in both AI modes, final results, restart, and layout.
-It requires Python Selenium, Firefox, and geckodriver (optionally set its path
-with `GECKODRIVER`). The test accelerates browser timers to finish games quickly.

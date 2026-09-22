@@ -28,3 +28,38 @@
     clip-path: inset(50%);
     white-space: nowrap;
 }
+
+.github-reference {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    padding: 2px 5px;
+    border: 1px solid #555;
+    border-radius: 3px;
+    background: #000;
+    color: #aaa;
+    font: 11px/1.2 ui-monospace, monospace;
+    letter-spacing: .02em;
+    text-decoration: none;
+    text-transform: none;
+    vertical-align: middle;
+}
+
+.github-reference:hover,
+.github-reference:focus-visible {
+    border-color: #aaa;
+    color: #fff;
+    outline: none;
+}
+
+body[data-production-theme="white"] .github-reference {
+    border-color: #bbb;
+    background: #fff;
+    color: #555;
+}
+
+body[data-production-theme="white"] .github-reference:hover,
+body[data-production-theme="white"] .github-reference:focus-visible {
+    border-color: #555;
+    color: #111;
+}
