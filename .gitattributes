@@ -1,0 +1,6 @@
+# Exclude vendored command-line viewer bundles from GitHub language statistics.
+assets/briscola/piacentine/**/commandline_data/*.js linguist-vendored
+
+# wasm-pack output is generated from the Rust source.
+demo/wasm.js linguist-generated
+demo/wasm_bg.wasm linguist-generated
