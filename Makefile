@@ -29,7 +29,7 @@ github-pages: build-production-white
 	@echo "GitHub Pages files ready in docs/. Commit and push docs/, then select your branch and /docs in Settings > Pages."
 
 serve: build
-	miniserve ./demo --index index.html
+	miniserve . --index index.html
 
 verify-firefox: build
 	python3 -m http.server 8001 --directory demo > /tmp/briscola-http.log 2>&1 & server_pid=$$!; \

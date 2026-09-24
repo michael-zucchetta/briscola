@@ -17,9 +17,11 @@ pub mod player;
 pub mod rules;
 
 const FULL_DECK_SIZE: usize = 40;
+const COIN_TOSS_DISPLAY_MS: i32 = 2200;
 
 #[derive(Clone, Copy)]
 enum Phase {
+    Setup,
     CoinToss,
     Dealing,
     Lead,
@@ -30,6 +32,12 @@ enum Phase {
     DrawPlayer1,
     DrawPlayer2,
     Finished,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum GameMode {
+    HumanVsAi,
+    AiVsAi,
 }
 
 struct BrowserGame {
@@ -48,7 +56,9 @@ struct BrowserGame {
     deck_size: usize,
     draw_first_player: usize,
     draw_second_player: usize,
-    ai_difficulty: ai::AiDifficulty,
+    mode: GameMode,
+    player1_difficulty: ai::AiDifficulty,
+    player2_difficulty: ai::AiDifficulty,
     fill_screen: bool,
     last_dealt_player: Option<usize>,
     last_played_player: Option<usize>,
@@ -74,13 +84,15 @@ impl BrowserGame {
             trick_cards: Vec::with_capacity(2),
             player_turn,
             pending_trick_winner: None,
-            phase: Phase::CoinToss,
-            status: "coin toss / deciding who plays first".to_string(),
+            phase: Phase::Setup,
+            status: "choose game mode".to_string(),
             trick_number: 1,
             deck_size: FULL_DECK_SIZE,
             draw_first_player: 1,
             draw_second_player: 2,
-            ai_difficulty: ai::AiDifficulty::Challenger,
+            mode: GameMode::HumanVsAi,
+            player1_difficulty: ai::AiDifficulty::Random,
+            player2_difficulty: ai::AiDifficulty::Challenger,
             fill_screen: false,
             last_dealt_player: None,
             last_played_player: None,
@@ -103,43 +115,68 @@ impl BrowserGame {
         }
     }
 
-    fn player_label(player_index: usize) -> &'static str {
-        if player_index == 1 {
-            "you"
-        } else {
-            "ai"
+    fn player_label(&self, player_index: usize) -> &'static str {
+        match (self.mode, player_index) {
+            (GameMode::HumanVsAi, 1) => "you",
+            (GameMode::HumanVsAi, _) => "ai",
+            (GameMode::AiVsAi, 1) => "ai 1",
+            (GameMode::AiVsAi, _) => "ai 2",
         }
     }
 
-    fn player_leads_label(player_index: usize) -> &'static str {
-        if player_index == 1 {
-            "You lead"
-        } else {
-            "AI leads"
+    fn player_display_label(&self, player_index: usize) -> &'static str {
+        Self::player_display_label_for(self.mode, player_index)
+    }
+
+    fn player_display_label_for(mode: GameMode, player_index: usize) -> &'static str {
+        match (mode, player_index) {
+            (GameMode::HumanVsAi, 1) => "YOU",
+            (GameMode::HumanVsAi, _) => "AI",
+            (GameMode::AiVsAi, 1) => "AI 1",
+            (GameMode::AiVsAi, _) => "AI 2",
         }
     }
 
-    fn player_wins_label(player_index: usize) -> &'static str {
-        if player_index == 1 {
-            "You win"
-        } else {
-            "AI wins"
+    fn player_leads_label(&self, player_index: usize) -> String {
+        match self.mode {
+            GameMode::HumanVsAi if player_index == 1 => "You lead".to_string(),
+            _ => format!("{} leads", self.player_display_label(player_index)),
         }
     }
 
-    fn player_collects_label(player_index: usize) -> &'static str {
-        if player_index == 1 {
-            "You collect"
-        } else {
-            "AI collects"
+    fn player_wins_label(&self, player_index: usize) -> String {
+        match self.mode {
+            GameMode::HumanVsAi if player_index == 1 => "You win".to_string(),
+            _ => format!("{} wins", self.player_display_label(player_index)),
         }
     }
 
-    fn player_draws_label(player_index: usize, draw_order: &'static str) -> String {
+    fn player_collects_label(&self, player_index: usize) -> String {
+        match self.mode {
+            GameMode::HumanVsAi if player_index == 1 => "You collect".to_string(),
+            _ => format!("{} collects", self.player_display_label(player_index)),
+        }
+    }
+
+    fn player_draws_label(&self, player_index: usize, draw_order: &'static str) -> String {
+        match self.mode {
+            GameMode::HumanVsAi if player_index == 1 => format!("You draw {draw_order}."),
+            _ => format!(
+                "{} draws {draw_order}.",
+                self.player_display_label(player_index)
+            ),
+        }
+    }
+
+    fn is_human_player(&self, player_index: usize) -> bool {
+        self.mode == GameMode::HumanVsAi && player_index == 1
+    }
+
+    fn ai_difficulty_for(&self, player_index: usize) -> ai::AiDifficulty {
         if player_index == 1 {
-            format!("You draw {draw_order}.")
+            self.player1_difficulty
         } else {
-            format!("AI draws {draw_order}.")
+            self.player2_difficulty
         }
     }
 
@@ -173,7 +210,7 @@ impl BrowserGame {
             briscola_suit: self.briscola.suit,
             lead_card,
         };
-        let difficulty = self.ai_difficulty;
+        let difficulty = self.ai_difficulty_for(player_index);
         let hand = self.hand_mut(player_index);
         let selected = ai::choose_card(difficulty, visible_state, hand);
         let card = hand.remove(selected);
@@ -182,18 +219,32 @@ impl BrowserGame {
     }
 
     fn restart(&mut self) {
-        let ai_difficulty = self.ai_difficulty;
+        let mode = self.mode;
+        let player1_difficulty = self.player1_difficulty;
+        let player2_difficulty = self.player2_difficulty;
         let fill_screen = self.fill_screen;
         let tick_generation = self.tick_generation.wrapping_add(1);
         *self = BrowserGame::new();
-        self.ai_difficulty = ai_difficulty;
+        self.mode = mode;
+        self.player1_difficulty = player1_difficulty;
+        self.player2_difficulty = player2_difficulty;
         self.fill_screen = fill_screen;
         self.tick_generation = tick_generation;
     }
 
-    fn set_ai_difficulty(&mut self, ai_difficulty: ai::AiDifficulty) {
-        self.ai_difficulty = ai_difficulty;
-        self.restart();
+    fn set_player_difficulty(&mut self, player_index: usize, difficulty: ai::AiDifficulty) {
+        if player_index == 1 {
+            self.player1_difficulty = difficulty;
+        } else {
+            self.player2_difficulty = difficulty;
+        }
+    }
+
+    fn start_game(&mut self) {
+        if matches!(self.phase, Phase::Setup) {
+            self.phase = Phase::CoinToss;
+            self.status = "coin toss / deciding who plays first".to_string();
+        }
     }
 
     fn toggle_fill_screen(&mut self) {
@@ -205,6 +256,9 @@ impl BrowserGame {
     }
 
     fn waiting_for_player1(&self) -> bool {
+        if !self.is_human_player(1) {
+            return false;
+        }
         match self.phase {
             Phase::Lead => self.leader_index() == 1,
             Phase::Follow => Self::other_player(self.leader_index()) == 1,
@@ -289,18 +343,21 @@ impl BrowserGame {
 
     fn result_label(&self) -> &'static str {
         match self.game_winner() {
-            Some(1) => "You win!",
-            Some(_) => "AI wins!",
+            Some(1) if self.mode == GameMode::HumanVsAi => "You win!",
+            Some(1) => "AI 1 wins!",
+            Some(_) if self.mode == GameMode::HumanVsAi => "AI wins!",
+            Some(_) => "AI 2 wins!",
             None => "Draw",
         }
     }
 
     fn advance(&mut self) -> Option<i32> {
         match self.phase {
+            Phase::Setup => None,
             Phase::CoinToss => {
                 self.phase = Phase::TrumpReveal;
                 self.status = format!("trump reveal / {}", trump_suit_name(self.briscola.suit));
-                Some(2200)
+                Some(3200)
             }
             Phase::Dealing => {
                 let dealt_cards = self.player1_hand.len() + self.player2_hand.len();
@@ -312,7 +369,7 @@ impl BrowserGame {
                     self.phase = Phase::Lead;
                     self.status = format!(
                         "deal complete / {}",
-                        Self::player_leads_label(self.leader_index())
+                        self.player_leads_label(self.leader_index())
                     );
                     Some(1200)
                 } else {
@@ -323,7 +380,7 @@ impl BrowserGame {
                     };
                     self.status = format!(
                         "deal / {} / {} cards / {}/{}",
-                        Self::player_label(next_player),
+                        self.player_label(next_player),
                         hand_size,
                         dealt_total,
                         constants::HAND_SIZE * 2,
@@ -333,13 +390,17 @@ impl BrowserGame {
             }
             Phase::Lead => {
                 let player = self.leader_index();
-                if player == 1 {
+                if self.is_human_player(player) {
                     self.status = format!("trick {} / select lead", self.trick_number);
                     return None;
                 }
                 self.play_ai_card(player);
                 self.phase = Phase::Follow;
-                self.status = format!("trick {} / AI leads", self.trick_number);
+                self.status = format!(
+                    "trick {} / {}",
+                    self.trick_number,
+                    self.player_leads_label(player)
+                );
                 Some(1600)
             }
             Phase::TrumpReveal => {
@@ -349,14 +410,18 @@ impl BrowserGame {
             }
             Phase::Follow => {
                 let player = Self::other_player(self.leader_index());
-                if player == 1 {
+                if self.is_human_player(player) {
                     self.status = format!("trick {} / select answer", self.trick_number);
                     return None;
                 }
                 self.play_ai_card(player);
                 self.phase = Phase::Resolve;
-                self.status = format!("trick {} / AI answers", self.trick_number);
-                Some(1600)
+                self.status = format!(
+                    "trick {} / {} answers",
+                    self.trick_number,
+                    self.player_display_label(player)
+                );
+                Some(1300)
             }
             Phase::Resolve => {
                 let winner = self.preview_trick_winner();
@@ -365,7 +430,7 @@ impl BrowserGame {
                 self.status = format!(
                     "trick {} / {}",
                     self.trick_number,
-                    Self::player_wins_label(winner)
+                    self.player_wins_label(winner)
                 );
                 Some(1200)
             }
@@ -386,12 +451,12 @@ impl BrowserGame {
                     self.phase = Phase::DrawPlayer1;
                     self.status = format!(
                         "{} / winner draws first",
-                        Self::player_collects_label(winner)
+                        self.player_collects_label(winner)
                     );
                     Some(600)
                 } else {
                     self.phase = Phase::Lead;
-                    self.status = format!("deck empty / {}", Self::player_leads_label(winner));
+                    self.status = format!("deck empty / {}", self.player_leads_label(winner));
                     Some(1100)
                 }
             }
@@ -399,14 +464,14 @@ impl BrowserGame {
                 let player = self.draw_first_player;
                 self.deal_card_to(player);
                 self.phase = Phase::DrawPlayer2;
-                self.status = Self::player_draws_label(player, "first");
+                self.status = self.player_draws_label(player, "first");
                 Some(600)
             }
             Phase::DrawPlayer2 => {
                 if self.deck_size > 0 {
                     let player = self.draw_second_player;
                     self.deal_card_to(player);
-                    self.status = Self::player_draws_label(player, "second");
+                    self.status = self.player_draws_label(player, "second");
                 } else {
                     self.status = "deck empty / no second draw".to_string();
                 }
@@ -449,6 +514,7 @@ fn set_styles(document: &Document) {
             --terminal-text: #ffffff;
             --terminal-muted: #9a9a9a;
             --card-width: clamp(48px, min(12vw, 13vh), 78px);
+            --reveal-card-width: 128px;
             box-sizing: border-box;
             width: 100%;
             min-height: min(620px, 100vh);
@@ -473,7 +539,8 @@ fn set_styles(document: &Document) {
         }
         .briscola-app .coin-toss-modal h2 { margin: 0 0 14px; font-size: 16px; color: var(--terminal-cyan); }
         .briscola-app .coin-toss-coin {
-            width: 88px; height: 132px; margin: 0 auto 16px; perspective: 700px;
+            width: var(--reveal-card-width); height: calc(var(--reveal-card-width) * 1.5);
+            margin: 0 auto 16px; perspective: 700px;
             animation: briscola-coin-toss 1500ms cubic-bezier(.2, .75, .3, 1) both;
         }
         .briscola-app .trump-reveal-layer {
@@ -487,21 +554,48 @@ fn set_styles(document: &Document) {
         }
         .briscola-app .trump-reveal-modal h2 { margin: 0 0 14px; font-size: 16px; color: var(--terminal-cyan); }
         .briscola-app .trump-reveal-modal .card-shell {
-            width: 72px; min-width: 72px; margin: 0 auto 14px;
+            width: var(--reveal-card-width); min-width: var(--reveal-card-width);
+            margin: 0 auto 14px;
         }
         .briscola-app .trump-reveal-modal p { margin: 0; font-size: 15px; }
+        .briscola-app .game-setup-layer {
+            position: absolute; inset: 0; z-index: 4; display: grid; place-items: center;
+            padding: 16px; background: var(--terminal-bg);
+        }
+        .briscola-app .game-setup-modal {
+            width: min(420px, 100%); max-height: 100%; overflow-y: auto;
+            padding: 20px; border: 1px solid var(--terminal-cyan);
+            background: var(--terminal-panel);
+            box-shadow: 0 0 28px color-mix(in srgb, var(--terminal-cyan) 24%, transparent);
+        }
+        .briscola-app .game-setup-modal h2 {
+            margin: 0 0 16px; color: var(--terminal-cyan); font-size: 17px; text-align: center;
+        }
+        .briscola-app .setup-mode-options,
+        .briscola-app .setup-difficulty-options {
+            display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+        }
+        .briscola-app .setup-section-label {
+            margin: 16px 0 7px; color: var(--terminal-muted); font-size: 12px; text-align: center;
+        }
+        .briscola-app .game-setup-modal > .terminal-button {
+            display: block; margin: 18px auto 0;
+        }
         .briscola-app .coin-toss-card {
-            position: relative; width: 88px; height: 132px; transform-style: preserve-3d;
+            position: relative; width: var(--reveal-card-width);
+            height: calc(var(--reveal-card-width) * 1.5); transform-style: preserve-3d;
             transform-origin: center center;
             animation: briscola-coin-flip-ai 1500ms ease-in-out both;
         }
         .briscola-app .coin-toss-face {
-            position: absolute; inset: 0; width: 88px; height: 132px; overflow: hidden;
+            position: absolute; inset: 0; width: var(--reveal-card-width);
+            height: calc(var(--reveal-card-width) * 1.5); overflow: hidden;
             backface-visibility: hidden; -webkit-backface-visibility: hidden;
             transform: translateZ(.5px);
         }
         .briscola-app .coin-toss-face .card-shell {
-            width: 88px; min-width: 88px; height: 132px; aspect-ratio: auto;
+            width: var(--reveal-card-width); min-width: var(--reveal-card-width);
+            height: calc(var(--reveal-card-width) * 1.5); aspect-ratio: auto;
         }
         .briscola-app .coin-toss-face.back { transform: rotateY(180deg) translateZ(.5px); }
         .briscola-app .coin-toss-card.player-opens { animation-name: briscola-coin-flip-player; }
@@ -1013,6 +1107,7 @@ fn set_styles(document: &Document) {
 
             .briscola-app {
                 --card-width: clamp(40px, min(16vw, 13vh), 64px);
+                --reveal-card-width: clamp(140px, 43vw, 168px);
                 min-height: 100vh;
                 min-height: 100dvh;
             }
@@ -1388,6 +1483,10 @@ fn should_suppress_touch_click(
     gesture.take_click(card_name).unwrap_or(false) && pinned_card_name == Some(card_name)
 }
 
+fn should_dismiss_hover_preview(is_mouse: bool, leaving_card: bool, pinned: bool) -> bool {
+    is_mouse && leaving_card && !pinned
+}
+
 fn install_card_preview_handlers(app: &Element) {
     if app.get_attribute("data-preview-handlers").is_some() {
         return;
@@ -1420,6 +1519,36 @@ fn install_card_preview_handlers(app: &Element) {
     }));
     let _ = app.add_event_listener_with_callback("pointerover", hover.as_ref().unchecked_ref());
     let _ = hover.into_js_value();
+
+    let hover_out_app = app.clone();
+    let hover_out = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |event: Event| {
+        let Some(pointer) = event.dyn_ref::<web_sys::PointerEvent>() else {
+            return;
+        };
+        if pointer.pointer_type() != "mouse" {
+            return;
+        }
+        let Some(card) = event
+            .target()
+            .and_then(|target| closest_preview_card(&target, &hover_out_app))
+        else {
+            return;
+        };
+        let moved_to_same_card = pointer
+            .related_target()
+            .and_then(|target| closest_preview_card(&target, &hover_out_app))
+            .map_or(false, |related| related == card);
+        let pinned = hover_out_app
+            .query_selector(".card-zoom[data-pinned='true']")
+            .ok()
+            .flatten()
+            .is_some();
+        if should_dismiss_hover_preview(true, !moved_to_same_card, pinned) {
+            dismiss_card_preview(&hover_out_app);
+        }
+    }));
+    let _ = app.add_event_listener_with_callback("pointerout", hover_out.as_ref().unchecked_ref());
+    let _ = hover_out.into_js_value();
 
     let focus_app = app.clone();
     let focus = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |event: Event| {
@@ -1801,8 +1930,6 @@ fn build_controls(doc: &Document, state: Rc<RefCell<BrowserGame>>) -> Element {
                 game.restart();
             }
             render_dashboard(&document(), Rc::clone(&restart_state));
-            let tick_generation = restart_state.borrow().tick_generation();
-            schedule_next_tick(Rc::clone(&restart_state), 1900, tick_generation);
         }))
         .expect("restart button should be appended");
 
@@ -1829,25 +1956,168 @@ fn build_controls(doc: &Document, state: Rc<RefCell<BrowserGame>>) -> Element {
         .append_child(&bigger_view)
         .expect("fill button should be appended");
 
-    append_text(doc, &controls, "span", "control-label", "AI difficulty:");
+    controls
+}
 
-    for (label, difficulty) in [
+fn build_difficulty_selector(
+    doc: &Document,
+    parent: &Element,
+    state: Rc<RefCell<BrowserGame>>,
+    player_index: usize,
+    label: &str,
+) {
+    append_text(doc, parent, "p", "setup-section-label", label);
+    let selector = create_element(doc, "div", "setup-difficulty-options");
+    for (button_label, difficulty) in [
         ("RANDOM", ai::AiDifficulty::Random),
         ("CHALLENGER", ai::AiDifficulty::Challenger),
     ] {
-        let difficulty_state = Rc::clone(&state);
-        let active = state.borrow().ai_difficulty == difficulty;
-        controls
-            .append_child(&render_action_button(doc, label, active, move || {
-                difficulty_state.borrow_mut().set_ai_difficulty(difficulty);
-                render_dashboard(&document(), Rc::clone(&difficulty_state));
-                let tick_generation = difficulty_state.borrow().tick_generation();
-                schedule_next_tick(Rc::clone(&difficulty_state), 1900, tick_generation);
-            }))
-            .expect("difficulty button should be appended");
+        let button_state = Rc::clone(&state);
+        let active = state.borrow().ai_difficulty_for(player_index) == difficulty;
+        let button = render_action_button(doc, button_label, active, move || {
+            button_state
+                .borrow_mut()
+                .set_player_difficulty(player_index, difficulty);
+            render_dashboard(&document(), Rc::clone(&button_state));
+        });
+        button
+            .set_attribute(
+                "data-setup-control",
+                &format!("difficulty-{player_index}-{}", button_label.to_lowercase()),
+            )
+            .unwrap();
+        selector
+            .append_child(&button)
+            .expect("difficulty option should be appended");
+        if let Some(button) = selector.last_element_child() {
+            button
+                .set_attribute("aria-pressed", if active { "true" } else { "false" })
+                .unwrap();
+        }
+    }
+    parent
+        .append_child(&selector)
+        .expect("difficulty selector should be appended");
+}
+
+fn build_setup_modal(doc: &Document, state: Rc<RefCell<BrowserGame>>) -> Element {
+    let layer = create_element(doc, "section", "game-setup-layer");
+    let modal = create_element(doc, "div", "game-setup-modal");
+    modal.set_attribute("role", "dialog").unwrap();
+    modal.set_attribute("aria-modal", "true").unwrap();
+    modal
+        .set_attribute("aria-labelledby", "game-setup-title")
+        .unwrap();
+    let title = create_element(doc, "h2", "");
+    title.set_attribute("id", "game-setup-title").unwrap();
+    title.set_text_content(Some("How would you like to play?"));
+    modal.append_child(&title).unwrap();
+
+    let mode_options = create_element(doc, "div", "setup-mode-options");
+    for (label, mode) in [
+        ("YOU VS AI", GameMode::HumanVsAi),
+        ("AI VS AI", GameMode::AiVsAi),
+    ] {
+        let mode_state = Rc::clone(&state);
+        let active = state.borrow().mode == mode;
+        let button = render_action_button(doc, label, active, move || {
+            mode_state.borrow_mut().mode = mode;
+            render_dashboard(&document(), Rc::clone(&mode_state));
+        });
+        button
+            .set_attribute(
+                "data-setup-control",
+                &format!("mode-{}", label.to_lowercase().replace(' ', "-")),
+            )
+            .unwrap();
+        mode_options
+            .append_child(&button)
+            .expect("game mode option should be appended");
+        if let Some(button) = mode_options.last_element_child() {
+            button
+                .set_attribute("aria-pressed", if active { "true" } else { "false" })
+                .unwrap();
+        }
+    }
+    modal.append_child(&mode_options).unwrap();
+
+    match state.borrow().mode {
+        GameMode::HumanVsAi => {
+            build_difficulty_selector(doc, &modal, Rc::clone(&state), 2, "AI DIFFICULTY")
+        }
+        GameMode::AiVsAi => {
+            build_difficulty_selector(doc, &modal, Rc::clone(&state), 1, "AI 1 DIFFICULTY");
+            build_difficulty_selector(doc, &modal, Rc::clone(&state), 2, "AI 2 DIFFICULTY");
+        }
     }
 
-    controls
+    let start_state = Rc::clone(&state);
+    let start_button = render_action_button(doc, "START GAME", true, move || {
+        start_state.borrow_mut().start_game();
+        render_dashboard(&document(), Rc::clone(&start_state));
+        let tick_generation = start_state.borrow().tick_generation();
+        schedule_next_tick(
+            Rc::clone(&start_state),
+            COIN_TOSS_DISPLAY_MS,
+            tick_generation,
+        );
+    });
+    start_button
+        .set_attribute("data-setup-control", "start")
+        .unwrap();
+    modal
+        .append_child(&start_button)
+        .expect("start button should be appended");
+
+    layer.append_child(&modal).unwrap();
+    let trap_modal = modal.clone();
+    let trap = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |event: Event| {
+        let Some(key_event) = event.dyn_ref::<web_sys::KeyboardEvent>() else {
+            return;
+        };
+        if key_event.key() != "Tab" {
+            return;
+        }
+        let Ok(buttons) = trap_modal.query_selector_all("button") else {
+            return;
+        };
+        if buttons.length() == 0 {
+            return;
+        }
+        let first = buttons
+            .item(0)
+            .and_then(|node| node.dyn_into::<web_sys::HtmlElement>().ok());
+        let last = buttons
+            .item(buttons.length() - 1)
+            .and_then(|node| node.dyn_into::<web_sys::HtmlElement>().ok());
+        let active = trap_modal
+            .owner_document()
+            .and_then(|doc| doc.active_element());
+        if key_event.shift_key()
+            && active
+                .as_ref()
+                .map(|el| el.is_same_node(first.as_ref().map(|e| e.as_ref())))
+                .unwrap_or(false)
+        {
+            key_event.prevent_default();
+            if let Some(last) = last {
+                let _ = last.focus();
+            }
+        } else if !key_event.shift_key()
+            && active
+                .as_ref()
+                .map(|el| el.is_same_node(last.as_ref().map(|e| e.as_ref())))
+                .unwrap_or(false)
+        {
+            key_event.prevent_default();
+            if let Some(first) = first {
+                let _ = first.focus();
+            }
+        }
+    }));
+    let _ = modal.add_event_listener_with_callback("keydown", trap.as_ref().unchecked_ref());
+    let _ = trap.into_js_value();
+    layer
 }
 
 fn render_card_back(document: &Document) -> Element {
@@ -1928,6 +2198,7 @@ fn build_trick_panel(
     document: &Document,
     trick_cards: &[(usize, card::Card)],
     last_played_player: Option<usize>,
+    mode: GameMode,
 ) -> Element {
     let panel = create_element(document, "section", "stack-panel trick-panel");
     append_text(document, &panel, "p", "stack-label", "TRICK");
@@ -1958,7 +2229,7 @@ fn build_trick_panel(
             &slot,
             "p",
             "trick-slot-label",
-            if player_index == 1 { "YOU" } else { "AI" },
+            BrowserGame::player_display_label_for(mode, player_index),
         );
         slots
             .append_child(&slot)
@@ -2022,7 +2293,13 @@ fn build_result(document: &Document, game: &BrowserGame) -> Element {
         &result,
         "p",
         "",
-        &format!("You {} — AI {}", you, challenger),
+        &format!(
+            "{} {} — {} {}",
+            game.player_display_label(1),
+            you,
+            game.player_display_label(2),
+            challenger
+        ),
     );
     layer.append_child(&result).unwrap();
     layer
@@ -2074,11 +2351,10 @@ fn build_coin_toss(document: &Document, game: &BrowserGame) -> Element {
         &modal,
         "p",
         "",
-        if game.leader_index() == 1 {
-            "You play first"
-        } else {
-            "AI plays first"
-        },
+        &format!(
+            "{} plays first",
+            game.player_display_label(game.leader_index())
+        ),
     );
     layer
         .append_child(&modal)
@@ -2112,6 +2388,14 @@ fn build_trump_reveal(document: &Document, game: &BrowserGame) -> Element {
 fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     set_styles(document);
     let mount = mount_element(document);
+    let focused_setup_control = document
+        .active_element()
+        .and_then(|element| element.get_attribute("data-setup-control"));
+    let was_setup = mount
+        .query_selector(".game-setup-modal")
+        .ok()
+        .flatten()
+        .is_some();
     dismiss_card_preview(&mount);
     install_card_preview_handlers(&mount);
     mount.set_inner_html("");
@@ -2173,7 +2457,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     board
         .append_child(&build_player_zone(
             document,
-            "AI",
+            state_ref.player_display_label(2),
             2,
             &state_ref.player2_hand,
             false,
@@ -2192,6 +2476,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
             document,
             &state_ref.trick_cards,
             state_ref.last_played_player,
+            state_ref.mode,
         ))
         .expect("trick panel should be appended");
     middle
@@ -2208,7 +2493,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     board
         .append_child(&build_player_zone(
             document,
-            "YOU",
+            state_ref.player_display_label(1),
             1,
             &state_ref.player1_hand,
             true,
@@ -2218,7 +2503,11 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         ))
         .expect("player 1 zone should be appended");
 
-    if matches!(state_ref.phase, Phase::CoinToss) {
+    if matches!(state_ref.phase, Phase::Setup) {
+        board
+            .append_child(&build_setup_modal(document, Rc::clone(&state)))
+            .expect("game setup modal should be appended");
+    } else if matches!(state_ref.phase, Phase::CoinToss) {
         board
             .append_child(&build_coin_toss(document, &state_ref))
             .expect("coin toss should be appended");
@@ -2240,11 +2529,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         "footer-pill",
         &format!(
             "LEADER: {}",
-            if state_ref.leader_index() == 1 {
-                "YOU"
-            } else {
-                "AI"
-            }
+            state_ref.player_display_label(state_ref.leader_index())
         ),
     );
     append_text(
@@ -2252,14 +2537,14 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         &footer,
         "div",
         "footer-pill",
-        &format!("YOU: {} PTS", score1),
+        &format!("{}: {} PTS", state_ref.player_display_label(1), score1),
     );
     append_text(
         document,
         &footer,
         "div",
         "footer-pill",
-        &format!("AI: {} PTS", score2),
+        &format!("{}: {} PTS", state_ref.player_display_label(2), score2),
     );
     append_text(
         document,
@@ -2267,8 +2552,10 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         "div",
         "footer-pill",
         &format!(
-            "WON: {} / {}",
+            "WON: {} {} / {} {}",
+            state_ref.player_display_label(1),
             state_ref.player1_won.len(),
+            state_ref.player_display_label(2),
             state_ref.player2_won.len()
         ),
     );
@@ -2289,6 +2576,39 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     mount
         .append_child(&dashboard)
         .expect("dashboard should be appended");
+
+    if matches!(state_ref.phase, Phase::Setup) {
+        let focus_target = focused_setup_control
+            .as_deref()
+            .and_then(|control| {
+                dashboard
+                    .query_selector(&format!("[data-setup-control='{control}']"))
+                    .ok()
+                    .flatten()
+            })
+            .or_else(|| {
+                (!was_setup)
+                    .then(|| {
+                        dashboard
+                            .query_selector(".game-setup-modal button")
+                            .ok()
+                            .flatten()
+                    })
+                    .flatten()
+            });
+        if let Some(button) =
+            focus_target.and_then(|button| button.dyn_into::<web_sys::HtmlElement>().ok())
+        {
+            let _ = button.focus();
+        }
+    } else if was_setup {
+        if let Ok(Some(status)) = dashboard.query_selector(".trick-status") {
+            let _ = status.set_attribute("tabindex", "-1");
+            if let Some(status) = status.dyn_ref::<web_sys::HtmlElement>() {
+                let _ = status.focus();
+            }
+        }
+    }
 
     drop(state_ref);
     {
@@ -2478,7 +2798,6 @@ pub fn run_app() {
         .map_or(false, |width| width <= 720.0);
     let state = Rc::new(RefCell::new(game));
     render_dashboard(&document(), Rc::clone(&state));
-    schedule_next_tick(state, 1900, 0);
 }
 
 #[cfg(test)]
@@ -2603,40 +2922,110 @@ mod browser_tests {
     }
 
     #[test]
+    fn hover_preview_dismisses_on_exit_but_survives_internal_and_pinned_transitions() {
+        assert!(should_dismiss_hover_preview(true, true, false));
+        assert!(!should_dismiss_hover_preview(true, false, false));
+        assert!(!should_dismiss_hover_preview(true, true, true));
+        assert!(!should_dismiss_hover_preview(false, true, false));
+    }
+
+    #[test]
     fn complete_games_conserve_cards_and_points() {
-        for difficulty in [ai::AiDifficulty::Random, ai::AiDifficulty::Challenger] {
-            for _ in 0..50 {
-                let mut game = BrowserGame::new();
-                game.ai_difficulty = difficulty;
-                let mut steps = 0;
-                while !matches!(game.phase, Phase::Finished) {
-                    let cards = game.player1_hand.len()
-                        + game.player2_hand.len()
-                        + game.player1_won.len()
-                        + game.player2_won.len()
-                        + game.trick_cards.len()
-                        + game.deck_size;
-                    assert_eq!(cards, 40);
-                    assert!(game.player1_hand.len() <= 3 && game.player2_hand.len() <= 3);
-                    if game.waiting_for_player1() {
-                        assert!(game.play_player1_card(0).is_some());
-                    } else {
-                        game.advance();
+        for mode in [GameMode::HumanVsAi, GameMode::AiVsAi] {
+            for (player1_difficulty, player2_difficulty) in [
+                (ai::AiDifficulty::Random, ai::AiDifficulty::Challenger),
+                (ai::AiDifficulty::Challenger, ai::AiDifficulty::Random),
+            ] {
+                for _ in 0..10 {
+                    let mut game = BrowserGame::new();
+                    game.mode = mode;
+                    game.player1_difficulty = player1_difficulty;
+                    game.player2_difficulty = player2_difficulty;
+                    game.start_game();
+                    let mut steps = 0;
+                    while !matches!(game.phase, Phase::Finished) {
+                        let cards = game.player1_hand.len()
+                            + game.player2_hand.len()
+                            + game.player1_won.len()
+                            + game.player2_won.len()
+                            + game.trick_cards.len()
+                            + game.deck_size;
+                        assert_eq!(cards, 40);
+                        assert!(game.player1_hand.len() <= 3 && game.player2_hand.len() <= 3);
+                        if game.waiting_for_player1() {
+                            assert!(game.play_player1_card(0).is_some());
+                        } else {
+                            game.advance();
+                        }
+                        steps += 1;
+                        assert!(steps < 250, "game must terminate");
                     }
-                    steps += 1;
-                    assert!(steps < 250, "game must terminate");
+                    assert_eq!(game.trick_number, 21);
+                    assert_eq!(game.scores().0 + game.scores().1, 120);
+                    let mut won = game.player1_won.clone();
+                    won.extend(&game.player2_won);
+                    for card in card::Card::load_cards() {
+                        assert_eq!(won.iter().filter(|&&c| c == card).count(), 1);
+                    }
+                    assert!(game.advance().is_none());
+                    assert!(game.play_player1_card(0).is_none());
                 }
-                assert_eq!(game.trick_number, 21);
-                assert_eq!(game.scores().0 + game.scores().1, 120);
-                let mut won = game.player1_won.clone();
-                won.extend(&game.player2_won);
-                for card in card::Card::load_cards() {
-                    assert_eq!(won.iter().filter(|&&c| c == card).count(), 1);
-                }
-                assert!(game.advance().is_none());
-                assert!(game.play_player1_card(0).is_none());
             }
         }
+    }
+
+    #[test]
+    fn setup_waits_for_start_and_restart_invalidates_pending_ticks() {
+        let mut game = BrowserGame::new();
+        assert!(matches!(game.phase, Phase::Setup));
+        assert!(game.advance().is_none());
+        assert_eq!(game.tick_generation(), 0);
+
+        game.mode = GameMode::AiVsAi;
+        game.player1_difficulty = ai::AiDifficulty::Random;
+        game.player2_difficulty = ai::AiDifficulty::Challenger;
+        game.start_game();
+        assert!(matches!(game.phase, Phase::CoinToss));
+
+        game.restart();
+        assert!(matches!(game.phase, Phase::Setup));
+        assert_eq!(game.tick_generation(), 1);
+        assert_eq!(game.mode, GameMode::AiVsAi);
+        assert_eq!(game.player1_difficulty, ai::AiDifficulty::Random);
+        assert_eq!(game.player2_difficulty, ai::AiDifficulty::Challenger);
+        assert!(game.advance().is_none());
+    }
+
+    #[test]
+    fn coin_toss_has_time_to_finish_before_trump_reveal() {
+        assert_eq!(COIN_TOSS_DISPLAY_MS, 2200);
+
+        let mut game = BrowserGame::new();
+        game.start_game();
+        assert!(matches!(game.phase, Phase::CoinToss));
+
+        assert_eq!(game.advance(), Some(3200));
+        assert!(matches!(game.phase, Phase::TrumpReveal));
+        assert_eq!(game.advance(), Some(320));
+        assert!(matches!(game.phase, Phase::Dealing));
+    }
+
+    #[test]
+    fn ai_mode_uses_independent_difficulty_and_disables_human_input() {
+        let mut game = BrowserGame::new();
+        game.mode = GameMode::AiVsAi;
+        game.set_player_difficulty(1, ai::AiDifficulty::Random);
+        game.set_player_difficulty(2, ai::AiDifficulty::Challenger);
+
+        assert_eq!(game.ai_difficulty_for(1), ai::AiDifficulty::Random);
+        assert_eq!(game.ai_difficulty_for(2), ai::AiDifficulty::Challenger);
+        assert!(!game.is_human_player(1));
+        assert!(!game.is_human_player(2));
+        assert!(!game.waiting_for_player1());
+
+        game.mode = GameMode::HumanVsAi;
+        assert!(game.is_human_player(1));
+        assert!(!game.is_human_player(2));
     }
 
     #[test]
@@ -2649,31 +3038,42 @@ mod browser_tests {
         assert_eq!(game.scores(), (60, 60));
         assert_eq!(game.game_winner(), None);
         assert_eq!(game.result_label(), "Draw");
-        game.ai_difficulty = ai::AiDifficulty::Random;
+        game.mode = GameMode::AiVsAi;
+        game.player1_difficulty = ai::AiDifficulty::Random;
+        game.player2_difficulty = ai::AiDifficulty::Challenger;
         game.fill_screen = true;
         game.restart();
         assert_eq!(game.tick_generation(), 1);
-        assert!(matches!(game.phase, Phase::CoinToss));
+        assert!(matches!(game.phase, Phase::Setup));
         assert_eq!(game.scores(), (0, 0));
-        assert_eq!(game.ai_difficulty, ai::AiDifficulty::Random);
+        assert_eq!(game.mode, GameMode::AiVsAi);
+        assert_eq!(game.player1_difficulty, ai::AiDifficulty::Random);
+        assert_eq!(game.player2_difficulty, ai::AiDifficulty::Challenger);
         assert!(game.fill_screen);
     }
 
     #[test]
     fn player_statuses_use_correct_verb_forms() {
-        assert_eq!(BrowserGame::player_leads_label(1), "You lead");
-        assert_eq!(BrowserGame::player_leads_label(2), "AI leads");
-        assert_eq!(BrowserGame::player_wins_label(1), "You win");
-        assert_eq!(BrowserGame::player_wins_label(2), "AI wins");
-        assert_eq!(BrowserGame::player_collects_label(1), "You collect");
-        assert_eq!(BrowserGame::player_collects_label(2), "AI collects");
+        let human_game = BrowserGame::new();
+        assert_eq!(human_game.player_leads_label(1), "You lead");
+        assert_eq!(human_game.player_leads_label(2), "AI leads");
+        assert_eq!(human_game.player_wins_label(1), "You win");
+        assert_eq!(human_game.player_wins_label(2), "AI wins");
+        assert_eq!(human_game.player_collects_label(1), "You collect");
+        assert_eq!(human_game.player_collects_label(2), "AI collects");
+        assert_eq!(human_game.player_draws_label(1, "first"), "You draw first.");
         assert_eq!(
-            BrowserGame::player_draws_label(1, "first"),
-            "You draw first."
-        );
-        assert_eq!(
-            BrowserGame::player_draws_label(2, "second"),
+            human_game.player_draws_label(2, "second"),
             "AI draws second."
         );
+
+        let mut ai_game = BrowserGame::new();
+        ai_game.mode = GameMode::AiVsAi;
+        assert_eq!(ai_game.player_display_label(1), "AI 1");
+        assert_eq!(ai_game.player_display_label(2), "AI 2");
+        assert_eq!(ai_game.player_leads_label(1), "AI 1 leads");
+        assert_eq!(ai_game.player_wins_label(2), "AI 2 wins");
+        assert_eq!(ai_game.player_collects_label(1), "AI 1 collects");
+        assert_eq!(ai_game.player_draws_label(2, "first"), "AI 2 draws first.");
     }
 }
