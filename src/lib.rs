@@ -665,7 +665,7 @@ fn set_styles(document: &Document) {
             height: 100vh;
             min-height: 100vh;
             overflow: hidden;
-            --card-width: clamp(54px, min(13vw, 16vh), 104px);
+            --card-width: clamp(54px, min(15vw, 18vh), 128px);
         }
 
         .briscola-app *,
@@ -978,7 +978,7 @@ fn set_styles(document: &Document) {
         }
 
         .briscola-app .card-back {
-            border: 1px solid var(--terminal-border);
+            border: 0;
             background: transparent;
         }
 
@@ -1113,9 +1113,8 @@ fn set_styles(document: &Document) {
             }
 
             .briscola-app.fill-screen {
-                --card-width: clamp(48px, min(18vw, 8.5vh), 78px);
-                --card-width: clamp(48px, min(18vw, 8.5dvh), 78px);
-                --middle-card-width: clamp(76px, min(24vw, 14dvh), 100px);
+                --card-width: clamp(60px, 24vw, 96px);
+                --middle-card-width: clamp(68px, min(22vw, 13dvh), 92px);
             }
 
             .briscola-app .dashboard {
@@ -1190,13 +1189,40 @@ fn set_styles(document: &Document) {
 
             .briscola-app .header-rail {
                 justify-content: flex-start;
+                align-items: flex-start;
                 min-width: 0;
+                flex-wrap: nowrap;
+                gap: 4px;
             }
 
             .briscola-app .trick-status {
-                flex: 0 0 100%;
+                order: 1;
+                flex: 1 1 auto;
+                min-width: 0;
                 text-align: center;
                 overflow-wrap: anywhere;
+            }
+
+            .briscola-app .header-rail .control-row {
+                order: 0;
+                flex: 0 0 auto;
+                flex-wrap: nowrap;
+            }
+
+            .briscola-app .footer-bar {
+                flex-wrap: nowrap;
+                justify-content: space-between;
+                gap: 4px;
+            }
+
+            .briscola-app .footer-pill {
+                padding: 2px 4px;
+                font-size: 10px;
+                white-space: nowrap;
+            }
+
+            .briscola-app .won-count {
+                display: none;
             }
 
             .briscola-app .player-hand {
@@ -1205,10 +1231,10 @@ fn set_styles(document: &Document) {
 
             .briscola-app .player-zone {
                 display: grid;
-                grid-template-columns: 42px minmax(0, 1fr);
+                grid-template-columns: 34px minmax(0, 1fr);
                 align-items: center;
                 justify-items: stretch;
-                gap: 6px;
+                gap: 4px;
                 min-width: 0;
             }
 
@@ -1238,8 +1264,8 @@ fn set_styles(document: &Document) {
 
             .briscola-app.fill-screen .player-hand > .card-shell,
             .briscola-app.fill-screen .player-hand > .card-button {
-                width: calc((100% - 36px) / 3);
-                min-width: calc((100% - 36px) / 3);
+                width: min(104px, calc((100% - 12px) / 3));
+                min-width: min(104px, calc((100% - 12px) / 3));
             }
 
             .briscola-app.fill-screen .deck-stack,
@@ -1251,6 +1277,14 @@ fn set_styles(document: &Document) {
             .briscola-app.fill-screen .deck-stack .card-shell {
                 width: 100%;
                 min-width: 0;
+            }
+
+            .briscola-app.fill-screen .deck-stack .card-back:nth-last-child(2) {
+                transform: translateY(2px);
+            }
+
+            .briscola-app.fill-screen .deck-stack .card-back:nth-last-child(3) {
+                transform: translateY(4px);
             }
 
             .briscola-app.fill-screen .trick-slots {
@@ -1475,12 +1509,8 @@ impl PreviewGesture {
     }
 }
 
-fn should_suppress_touch_click(
-    gesture: &mut PreviewGesture,
-    card_name: &str,
-    pinned_card_name: Option<&str>,
-) -> bool {
-    gesture.take_click(card_name).unwrap_or(false) && pinned_card_name == Some(card_name)
+fn should_suppress_touch_click(gesture: &mut PreviewGesture, card_name: &str) -> bool {
+    gesture.take_click(card_name).unwrap_or(false)
 }
 
 fn should_dismiss_hover_preview(is_mouse: bool, leaving_card: bool, pinned: bool) -> bool {
@@ -1699,17 +1729,7 @@ fn install_card_preview_handlers(app: &Element) {
             let Some(tapped_name) = card.get_attribute("data-card-name") else {
                 return;
             };
-            let pinned_name = click_app
-                .query_selector(".card-zoom[data-pinned='true']")
-                .ok()
-                .flatten()
-                .and_then(|preview| preview.query_selector(".card-zoom-name").ok().flatten())
-                .and_then(|name| name.text_content());
-            if should_suppress_touch_click(
-                &mut click_gesture.borrow_mut(),
-                &tapped_name,
-                pinned_name.as_deref(),
-            ) {
+            if should_suppress_touch_click(&mut click_gesture.borrow_mut(), &tapped_name) {
                 event.prevent_default();
                 event.stop_immediate_propagation();
             }
@@ -2526,7 +2546,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
         document,
         &footer,
         "div",
-        "footer-pill",
+        "footer-pill won-count",
         &format!(
             "LEADER: {}",
             state_ref.player_display_label(state_ref.leader_index())
@@ -2807,20 +2827,15 @@ mod browser_tests {
     #[test]
     fn first_touch_tap_previews_and_suppresses_click() {
         let mut gesture = PreviewGesture::default();
-        let mut pinned_card = None;
         gesture.pointer_down(7, 40.0, 80.0, Some("Ace of Cups".to_string()));
 
         let (card_name, show_preview) = gesture
-            .pointer_up(7, Some("Ace of Cups"), pinned_card.as_deref())
+            .pointer_up(7, Some("Ace of Cups"), None)
             .expect("matching pointer-up should complete the tap");
         assert!(show_preview);
-        pinned_card = Some(card_name);
-        assert_eq!(pinned_card.as_deref(), Some("Ace of Cups"));
-        assert!(should_suppress_touch_click(
-            &mut gesture,
-            "Ace of Cups",
-            pinned_card.as_deref()
-        ));
+        assert_eq!(card_name, "Ace of Cups");
+        // Suppress the first-tap click even if another event dismissed the preview.
+        assert!(should_suppress_touch_click(&mut gesture, "Ace of Cups"));
     }
 
     #[test]
@@ -2833,11 +2848,7 @@ mod browser_tests {
             .expect("first matching tap should complete");
         assert!(show_preview);
         pinned_card = Some(card_name);
-        assert!(should_suppress_touch_click(
-            &mut gesture,
-            "Three of Swords",
-            pinned_card.as_deref()
-        ));
+        assert!(should_suppress_touch_click(&mut gesture, "Three of Swords"));
 
         gesture.pointer_down(4, 10.0, 20.0, Some("Three of Swords".to_string()));
         let (card_name, show_preview) = gesture
@@ -2845,11 +2856,9 @@ mod browser_tests {
             .expect("second matching tap should complete");
         assert!(!show_preview);
         assert_eq!(card_name, "Three of Swords");
-        pinned_card = None;
         assert!(!should_suppress_touch_click(
             &mut gesture,
-            "Three of Swords",
-            pinned_card.as_deref()
+            "Three of Swords"
         ));
     }
 
@@ -2896,8 +2905,7 @@ mod browser_tests {
         gesture.cancel();
         assert!(!should_suppress_touch_click(
             &mut gesture,
-            "Seven of Swords",
-            Some("Seven of Swords")
+            "Seven of Swords"
         ));
     }
 
@@ -2909,15 +2917,10 @@ mod browser_tests {
             .pointer_up(5, Some("Seven of Swords"), None)
             .is_some());
 
+        assert!(!should_suppress_touch_click(&mut gesture, "Four of Cups"));
         assert!(!should_suppress_touch_click(
             &mut gesture,
-            "Four of Cups",
-            Some("Seven of Swords")
-        ));
-        assert!(!should_suppress_touch_click(
-            &mut gesture,
-            "Seven of Swords",
-            Some("Seven of Swords")
+            "Seven of Swords"
         ));
     }
 
