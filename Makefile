@@ -10,26 +10,26 @@ wasm-pack:
 
 build:
 	CARGO_HOME=$(CURDIR)/.cargo-home TMPDIR=/tmp CARGO_TARGET_DIR=/tmp/briscola-wasm-pack-target wasm-pack build --target web --out-name wasm --out-dir ./demo
-	printf '%s\n' '*' '!.gitignore' '!index.html' '!card-zoom.js' '!card-zoom.css' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./demo/.gitignore
+	printf '%s\n' '*' '!.gitignore' '!index.html' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./demo/.gitignore
 
 build-production-white:
 	CARGO_HOME=$(CURDIR)/.cargo-home TMPDIR=/tmp CARGO_TARGET_DIR=/tmp/briscola-wasm-pack-target RUSTFLAGS="-C opt-level=3" wasm-pack build --release --target web --out-name wasm --out-dir ./demo
-	printf '%s\n' '*' '!.gitignore' '!index.html' '!card-zoom.js' '!card-zoom.css' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./demo/.gitignore
+	printf '%s\n' '*' '!.gitignore' '!index.html' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./demo/.gitignore
 	sed -i '/<body /s/data-production-theme="[^"]*"/data-production-theme="white"/' demo/index.html
 
 build-production-terminal:
 	CARGO_HOME=$(CURDIR)/.cargo-home TMPDIR=/tmp CARGO_TARGET_DIR=/tmp/briscola-wasm-pack-target RUSTFLAGS="-C opt-level=3" wasm-pack build --release --target web --out-name wasm --out-dir ./demo
-	printf '%s\n' '*' '!.gitignore' '!index.html' '!card-zoom.js' '!card-zoom.css' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./demo/.gitignore
+	printf '%s\n' '*' '!.gitignore' '!index.html' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./demo/.gitignore
 	sed -i '/<body /s/data-production-theme="[^"]*"/data-production-theme="terminal"/' demo/index.html
 
 github-pages: build-production-white
 	mkdir -p docs
-	cp demo/index.html demo/card-zoom.css demo/card-zoom.js demo/wasm.js demo/wasm_bg.wasm docs/
+	cp demo/index.html demo/wasm.js demo/wasm_bg.wasm docs/
 	touch docs/.nojekyll
 	@echo "GitHub Pages files ready in docs/. Commit and push docs/, then select your branch and /docs in Settings > Pages."
 
 serve: build
-	miniserve ./demo --index index.html
+	miniserve . --index index.html
 
 verify-firefox: build
 	python3 -m http.server 8001 --directory demo > /tmp/briscola-http.log 2>&1 & server_pid=$$!; \

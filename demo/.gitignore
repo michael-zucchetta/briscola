@@ -1,8 +1,6 @@
 *
 !.gitignore
 !index.html
-!card-zoom.js
-!card-zoom.css
 !wasm.js
 !wasm_bg.js
 !wasm_bg.wasm

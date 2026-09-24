@@ -54,15 +54,34 @@ fn choose_lead_card(state: VisibleGameState, hand: &[card::Card]) -> usize {
 }
 
 fn choose_follow_card(state: VisibleGameState, hand: &[card::Card], lead: card::Card) -> usize {
-    let winning_card = hand
+    let winning_non_trump = hand
         .iter()
         .enumerate()
-        .filter(|(_, card)| !rules::wins_first(lead, **card, state.briscola_suit))
+        .filter(|(_, card)| {
+            card.suit != state.briscola_suit
+                && !rules::wins_first(lead, **card, state.briscola_suit)
+        })
         .min_by_key(|(_, card)| follow_cost(**card, state.briscola_suit));
 
     if rules::card_points(lead) > 0 {
-        if let Some((index, _)) = winning_card {
+        if let Some((index, _)) = winning_non_trump {
             return index;
+        }
+
+        // Save trump for the deck's biggest point cards: the Three (10) and
+        // Ace (11). Lower-value court cards are not worth spending a trump on.
+        if rules::card_points(lead) >= 10 {
+            if let Some((index, _)) = hand
+                .iter()
+                .enumerate()
+                .filter(|(_, card)| {
+                    card.suit == state.briscola_suit
+                        && !rules::wins_first(lead, **card, state.briscola_suit)
+                })
+                .min_by_key(|(_, card)| follow_cost(**card, state.briscola_suit))
+            {
+                return index;
+            }
         }
     }
 
