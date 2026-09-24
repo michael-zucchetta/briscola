@@ -4,7 +4,6 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <title>Briscola</title>
-        <link rel="stylesheet" href="./demo/card-zoom.css">
         <style>
             html,
             body {
@@ -23,9 +22,7 @@
         </style>
         <script type="module">
             import init from "./demo/wasm.js"
-            import { installCardZoom } from "./demo/card-zoom.js"
             await init()
-            installCardZoom(document.getElementById("briscola-app"))
         </script>
     </head>
     <body data-production-theme="white">

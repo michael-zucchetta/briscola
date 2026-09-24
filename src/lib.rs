@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use rand::Rng;
 use wasm_bindgen::{closure::Closure, prelude::*, JsCast};
-use web_sys::{window, Document, Element};
+use web_sys::{window, Document, Element, Event, EventTarget};
 
 pub mod ai;
 pub mod card;
@@ -888,6 +888,52 @@ fn set_styles(document: &Document) {
             background: transparent;
         }
 
+        .briscola-app .card-zoom {
+            position: fixed;
+            z-index: 100;
+            pointer-events: none;
+            filter: drop-shadow(0 8px 12px #0009);
+            aspect-ratio: 2 / 3;
+        }
+
+        .briscola-app .card-zoom-image svg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .briscola-app .card-zoom-hint {
+            padding: 2px;
+            background: var(--terminal-panel);
+            color: var(--terminal-text);
+            border: 1px solid var(--terminal-active);
+            font: 11px/14px ui-monospace, monospace;
+            text-align: center;
+        }
+
+        .briscola-app .card-zoom-instruction {
+            display: block;
+            margin-top: 1px;
+            color: var(--terminal-muted);
+        }
+
+        .briscola-app .card-zoom-name {
+            display: block;
+            padding: 0 2px;
+            background: #180605;
+            color: #ff554d;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-shadow: 0 0 5px #ff251e;
+            text-transform: uppercase;
+        }
+
+        .briscola-app.theme-white .card-zoom-name {
+            background: #fff;
+            color: #a32620;
+            text-shadow: none;
+        }
+
         .briscola-app .dealt-card-to-challenger {
             animation: deal-to-challenger 280ms cubic-bezier(.2, .8, .2, 1) both;
         }
@@ -1193,6 +1239,431 @@ fn mount_element(document: &Document) -> Element {
     element
 }
 
+fn closest_preview_card(target: &EventTarget, app: &Element) -> Option<Element> {
+    let element = target.dyn_ref::<Element>()?;
+    let card = element.closest("[data-preview-card='true']").ok()??;
+    if app.contains(Some(&card)) {
+        Some(card)
+    } else {
+        None
+    }
+}
+
+fn dismiss_card_preview(app: &Element) {
+    if let Ok(Some(preview)) = app.query_selector(".card-zoom") {
+        preview.remove();
+    }
+}
+
+fn show_card_preview(app: &Element, card: &Element, pinned: bool) {
+    let Some(svg) = card.query_selector("svg").ok().flatten() else {
+        return;
+    };
+    let Some(document) = app.owner_document() else {
+        return;
+    };
+    dismiss_card_preview(app);
+
+    let preview = create_element(&document, "div", "card-zoom");
+    let _ = preview.set_attribute("aria-hidden", "true");
+    let _ = preview.set_attribute("data-pinned", if pinned { "true" } else { "false" });
+    let picture = create_element(&document, "div", "card-zoom-image");
+    if let Ok(svg_clone) = svg.clone_node_with_deep(true) {
+        let _ = picture.append_child(&svg_clone);
+    }
+    let hint = create_element(&document, "div", "card-zoom-hint");
+    let name = create_element(&document, "span", "card-zoom-name");
+    name.set_text_content(Some(
+        &card
+            .get_attribute("data-card-name")
+            .unwrap_or_else(|| "Card".to_string()),
+    ));
+    let _ = hint.append_child(&name);
+    if pinned {
+        let instruction = create_element(&document, "span", "card-zoom-instruction");
+        instruction.set_text_content(Some(if card.class_list().contains("card-button") {
+            "Tap card again to play"
+        } else {
+            "Tap outside to close"
+        }));
+        let _ = hint.append_child(&instruction);
+    }
+    let _ = preview.append_child(&picture);
+    let _ = preview.append_child(&hint);
+
+    let rect = card.get_bounding_client_rect();
+    let width = rect.width().max(1.0);
+    let image_width = (width * 2.2).min(240.0).max(1.0);
+    let caption_height = if pinned { 38.0 } else { 22.0 };
+    let visual_viewport = window().and_then(|window| window.visual_viewport());
+    let viewport_left = visual_viewport
+        .as_ref()
+        .map_or(0.0, |viewport| viewport.offset_left());
+    let viewport_top = visual_viewport
+        .as_ref()
+        .map_or(0.0, |viewport| viewport.offset_top());
+    let viewport_width = visual_viewport
+        .as_ref()
+        .map(|viewport| viewport.width())
+        .or_else(|| window().and_then(|window| window.inner_width().ok()?.as_f64()))
+        .unwrap_or(1024.0);
+    let viewport_height = visual_viewport
+        .as_ref()
+        .map(|viewport| viewport.height())
+        .or_else(|| window().and_then(|window| window.inner_height().ok()?.as_f64()))
+        .unwrap_or(768.0);
+    let image_width = image_width
+        .min((viewport_width - 24.0).max(1.0))
+        .min(((viewport_height - 24.0 - caption_height) / 1.5).max(1.0));
+    let total_height = image_width * 1.5 + caption_height;
+    let left = (rect.left() + width / 2.0 - image_width / 2.0)
+        .max(viewport_left + 12.0)
+        .min((viewport_left + viewport_width - image_width - 12.0).max(viewport_left + 12.0));
+    let top = (rect.bottom() - total_height)
+        .max(viewport_top + 12.0)
+        .min((viewport_top + viewport_height - total_height - 12.0).max(viewport_top + 12.0));
+    let style = format!(
+        "width:{image_width}px;height:{}px;left:{left}px;top:{top}px",
+        image_width * 1.5 + caption_height
+    );
+    let _ = preview.set_attribute("style", &style);
+    let _ = picture.set_attribute("style", &format!("height:{}px", image_width * 1.5));
+    let _ = app.append_child(&preview);
+}
+
+#[derive(Default)]
+struct PreviewGesture {
+    active: Option<(i32, f64, f64, String)>,
+    pending_click: Option<(String, bool)>,
+}
+
+impl PreviewGesture {
+    fn pointer_down(&mut self, pointer_id: i32, x: f64, y: f64, card_name: Option<String>) {
+        self.pending_click = None;
+        self.active = card_name.map(|name| (pointer_id, x, y, name));
+    }
+
+    fn pointer_move(&mut self, pointer_id: i32, x: f64, y: f64) {
+        if let Some((active_id, start_x, start_y, _)) = &self.active {
+            let dx = x - start_x;
+            let dy = y - start_y;
+            if pointer_id == *active_id && (dx * dx + dy * dy).sqrt() > 10.0 {
+                self.active = None;
+            }
+        }
+    }
+
+    fn pointer_up(
+        &mut self,
+        pointer_id: i32,
+        card_name: Option<&str>,
+        pinned_card_name: Option<&str>,
+    ) -> Option<(String, bool)> {
+        let (active_id, _, _, original_name) = self.active.take()?;
+        if pointer_id != active_id || card_name != Some(original_name.as_str()) {
+            return None;
+        }
+        let show_preview = pinned_card_name != Some(original_name.as_str());
+        self.pending_click = Some((original_name.clone(), show_preview));
+        Some((original_name, show_preview))
+    }
+
+    fn take_click(&mut self, card_name: &str) -> Option<bool> {
+        self.pending_click
+            .take()
+            .and_then(|(pending, suppress)| (pending == card_name).then_some(suppress))
+    }
+
+    fn cancel(&mut self) {
+        self.active = None;
+        self.pending_click = None;
+    }
+}
+
+fn should_suppress_touch_click(
+    gesture: &mut PreviewGesture,
+    card_name: &str,
+    pinned_card_name: Option<&str>,
+) -> bool {
+    gesture.take_click(card_name).unwrap_or(false) && pinned_card_name == Some(card_name)
+}
+
+fn install_card_preview_handlers(app: &Element) {
+    if app.get_attribute("data-preview-handlers").is_some() {
+        return;
+    }
+    let _ = app.set_attribute("data-preview-handlers", "true");
+
+    let hover_app = app.clone();
+    let hover = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |event: Event| {
+        let Some(pointer) = event.dyn_ref::<web_sys::PointerEvent>() else {
+            return;
+        };
+        if pointer.pointer_type() != "mouse" {
+            return;
+        }
+        let Some(card) = event
+            .target()
+            .and_then(|target| closest_preview_card(&target, &hover_app))
+        else {
+            return;
+        };
+        if let Some(related) = pointer
+            .related_target()
+            .and_then(|target| closest_preview_card(&target, &hover_app))
+        {
+            if related == card {
+                return;
+            }
+        }
+        show_card_preview(&hover_app, &card, false);
+    }));
+    let _ = app.add_event_listener_with_callback("pointerover", hover.as_ref().unchecked_ref());
+    let _ = hover.into_js_value();
+
+    let focus_app = app.clone();
+    let focus = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |event: Event| {
+        if let Some(card) = event
+            .target()
+            .and_then(|target| closest_preview_card(&target, &focus_app))
+        {
+            show_card_preview(&focus_app, &card, false);
+        }
+    }));
+    let _ = app.add_event_listener_with_callback("focusin", focus.as_ref().unchecked_ref());
+    let _ = focus.into_js_value();
+
+    let blur_app = app.clone();
+    let blur = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |event: Event| {
+        if event
+            .target()
+            .and_then(|target| closest_preview_card(&target, &blur_app))
+            .is_some()
+        {
+            dismiss_card_preview(&blur_app);
+        }
+    }));
+    let _ = app.add_event_listener_with_callback("focusout", blur.as_ref().unchecked_ref());
+    let _ = blur.into_js_value();
+
+    if let Some(document) = app.owner_document() {
+        let event_app = app.clone();
+        let gesture = Rc::new(RefCell::new(PreviewGesture::default()));
+
+        let down_gesture = Rc::clone(&gesture);
+        let down_app = event_app.clone();
+        let down = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |event: Event| {
+            let Some(pointer) = event.dyn_ref::<web_sys::PointerEvent>() else {
+                return;
+            };
+            if pointer.is_primary() && pointer.pointer_type() != "mouse" {
+                let card_name = event
+                    .target()
+                    .and_then(|target| closest_preview_card(&target, &down_app))
+                    .and_then(|card| card.get_attribute("data-card-name"));
+                down_gesture.borrow_mut().pointer_down(
+                    pointer.pointer_id(),
+                    pointer.client_x() as f64,
+                    pointer.client_y() as f64,
+                    card_name,
+                );
+            } else {
+                down_gesture.borrow_mut().cancel();
+            }
+        }));
+        let _ = document.add_event_listener_with_callback_and_bool(
+            "pointerdown",
+            down.as_ref().unchecked_ref(),
+            true,
+        );
+        let _ = down.into_js_value();
+
+        let move_gesture = Rc::clone(&gesture);
+        let moved = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |event: Event| {
+            let Some(pointer) = event.dyn_ref::<web_sys::PointerEvent>() else {
+                return;
+            };
+            move_gesture.borrow_mut().pointer_move(
+                pointer.pointer_id(),
+                pointer.client_x() as f64,
+                pointer.client_y() as f64,
+            );
+        }));
+        let _ = document.add_event_listener_with_callback_and_bool(
+            "pointermove",
+            moved.as_ref().unchecked_ref(),
+            true,
+        );
+        let _ = moved.into_js_value();
+
+        let cancel_gesture = Rc::clone(&gesture);
+        let cancel = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |_| {
+            cancel_gesture.borrow_mut().cancel();
+        }));
+        let _ = document.add_event_listener_with_callback_and_bool(
+            "pointercancel",
+            cancel.as_ref().unchecked_ref(),
+            true,
+        );
+        let _ = cancel.into_js_value();
+
+        let up_gesture = Rc::clone(&gesture);
+        let up_app = event_app.clone();
+        let up = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |event: Event| {
+            let Some(pointer) = event.dyn_ref::<web_sys::PointerEvent>() else {
+                return;
+            };
+            if pointer.pointer_type() == "mouse" {
+                return;
+            }
+            let card = event
+                .target()
+                .and_then(|target| closest_preview_card(&target, &up_app));
+            let tapped_name = card
+                .as_ref()
+                .and_then(|card| card.get_attribute("data-card-name"));
+            let pinned_name = up_app
+                .query_selector(".card-zoom[data-pinned='true']")
+                .ok()
+                .flatten()
+                .and_then(|preview| preview.query_selector(".card-zoom-name").ok().flatten())
+                .and_then(|name| name.text_content());
+            let Some((_, show_preview)) = up_gesture.borrow_mut().pointer_up(
+                pointer.pointer_id(),
+                tapped_name.as_deref(),
+                pinned_name.as_deref(),
+            ) else {
+                return;
+            };
+            if let Some(card) = card {
+                if show_preview {
+                    show_card_preview(&up_app, &card, true);
+                } else {
+                    // Second tap: leave the generated click for the Rust play handler.
+                    dismiss_card_preview(&up_app);
+                }
+            }
+        }));
+        let _ = document.add_event_listener_with_callback_and_bool(
+            "pointerup",
+            up.as_ref().unchecked_ref(),
+            true,
+        );
+        let _ = up.into_js_value();
+
+        let click_gesture = Rc::clone(&gesture);
+        let click_app = event_app.clone();
+        let click = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |event: Event| {
+            let Some(click_event) = event.dyn_ref::<web_sys::MouseEvent>() else {
+                return;
+            };
+            if click_event.detail() == 0 {
+                return;
+            }
+            let Some(card) = event
+                .target()
+                .and_then(|target| closest_preview_card(&target, &click_app))
+            else {
+                dismiss_card_preview(&click_app);
+                return;
+            };
+            let Some(tapped_name) = card.get_attribute("data-card-name") else {
+                return;
+            };
+            let pinned_name = click_app
+                .query_selector(".card-zoom[data-pinned='true']")
+                .ok()
+                .flatten()
+                .and_then(|preview| preview.query_selector(".card-zoom-name").ok().flatten())
+                .and_then(|name| name.text_content());
+            if should_suppress_touch_click(
+                &mut click_gesture.borrow_mut(),
+                &tapped_name,
+                pinned_name.as_deref(),
+            ) {
+                event.prevent_default();
+                event.stop_immediate_propagation();
+            }
+        }));
+        let _ = document.add_event_listener_with_callback_and_bool(
+            "click",
+            click.as_ref().unchecked_ref(),
+            true,
+        );
+        let _ = click.into_js_value();
+
+        let outside_app = event_app.clone();
+        let outside = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |event: Event| {
+            if event.dyn_ref::<web_sys::PointerEvent>().is_none() {
+                return;
+            }
+            if event
+                .target()
+                .and_then(|target| closest_preview_card(&target, &outside_app))
+                .is_none()
+            {
+                dismiss_card_preview(&outside_app);
+            }
+        }));
+        let _ = document.add_event_listener_with_callback_and_bool(
+            "pointerdown",
+            outside.as_ref().unchecked_ref(),
+            true,
+        );
+        let _ = outside.into_js_value();
+
+        let escape_app = event_app;
+        let key = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |event: Event| {
+            if event
+                .dyn_ref::<web_sys::KeyboardEvent>()
+                .map_or(false, |key| key.key() == "Escape")
+            {
+                dismiss_card_preview(&escape_app);
+            }
+        }));
+        let _ = document.add_event_listener_with_callback("keydown", key.as_ref().unchecked_ref());
+        let _ = key.into_js_value();
+
+        let scroll_app = app.clone();
+        let scroll_gesture = Rc::clone(&gesture);
+        let scroll = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |_| {
+            dismiss_card_preview(&scroll_app);
+            scroll_gesture.borrow_mut().cancel();
+        }));
+        let _ = document.add_event_listener_with_callback_and_bool(
+            "scroll",
+            scroll.as_ref().unchecked_ref(),
+            true,
+        );
+        let _ = scroll.into_js_value();
+    }
+
+    if let Some(window) = window() {
+        let resize_app = app.clone();
+        let resize = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |_| {
+            dismiss_card_preview(&resize_app);
+        }));
+        let _ = window.add_event_listener_with_callback("resize", resize.as_ref().unchecked_ref());
+        let _ = resize.into_js_value();
+
+        if let Some(viewport) = window.visual_viewport() {
+            let viewport_app = app.clone();
+            let viewport_change = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |_| {
+                dismiss_card_preview(&viewport_app);
+            }));
+            let _ = viewport.add_event_listener_with_callback(
+                "resize",
+                viewport_change.as_ref().unchecked_ref(),
+            );
+            let _ = viewport.add_event_listener_with_callback(
+                "scroll",
+                viewport_change.as_ref().unchecked_ref(),
+            );
+            let _ = viewport_change.into_js_value();
+        }
+    }
+}
+
 fn production_theme(document: &Document) -> String {
     document
         .body()
@@ -1218,8 +1689,17 @@ fn render_card_svg(document: &Document, card: card::Card) -> Element {
         .set_attribute("data-card-name", &name)
         .expect("card name should be set");
     card_shell
-        .set_attribute("aria-label", &name)
-        .expect("card label should be set");
+        .set_attribute("tabindex", "0")
+        .expect("visible card should be focusable");
+    card_shell
+        .set_attribute("aria-label", &format!("Enlarge {}", name))
+        .expect("visible card should have a preview label");
+    card_shell
+        .set_attribute("aria-describedby", "card-zoom-help")
+        .expect("visible card should describe preview controls");
+    card_shell
+        .set_attribute("data-preview-card", "true")
+        .expect("visible card should be marked for preview");
     card_shell.set_inner_html(card_svg(card));
     card_shell
 }
@@ -1240,6 +1720,12 @@ fn render_card_button(
     button
         .set_attribute("data-card-name", &card_name(card))
         .expect("card name should be set");
+    button
+        .set_attribute("aria-describedby", "card-zoom-help")
+        .expect("playable card should describe preview controls");
+    button
+        .set_attribute("data-preview-card", "true")
+        .expect("playable card should be marked for preview");
     button.set_inner_html(card_svg(card));
 
     let callback_state = Rc::clone(&state);
@@ -1626,6 +2112,8 @@ fn build_trump_reveal(document: &Document, game: &BrowserGame) -> Element {
 fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     set_styles(document);
     let mount = mount_element(document);
+    dismiss_card_preview(&mount);
+    install_card_preview_handlers(&mount);
     mount.set_inner_html("");
 
     let state_ref = state.borrow();
@@ -1996,6 +2484,123 @@ pub fn run_app() {
 #[cfg(test)]
 mod browser_tests {
     use super::*;
+
+    #[test]
+    fn first_touch_tap_previews_and_suppresses_click() {
+        let mut gesture = PreviewGesture::default();
+        let mut pinned_card = None;
+        gesture.pointer_down(7, 40.0, 80.0, Some("Ace of Cups".to_string()));
+
+        let (card_name, show_preview) = gesture
+            .pointer_up(7, Some("Ace of Cups"), pinned_card.as_deref())
+            .expect("matching pointer-up should complete the tap");
+        assert!(show_preview);
+        pinned_card = Some(card_name);
+        assert_eq!(pinned_card.as_deref(), Some("Ace of Cups"));
+        assert!(should_suppress_touch_click(
+            &mut gesture,
+            "Ace of Cups",
+            pinned_card.as_deref()
+        ));
+    }
+
+    #[test]
+    fn second_touch_tap_plays_and_does_not_suppress_click() {
+        let mut gesture = PreviewGesture::default();
+        let mut pinned_card = None;
+        gesture.pointer_down(3, 10.0, 20.0, Some("Three of Swords".to_string()));
+        let (card_name, show_preview) = gesture
+            .pointer_up(3, Some("Three of Swords"), pinned_card.as_deref())
+            .expect("first matching tap should complete");
+        assert!(show_preview);
+        pinned_card = Some(card_name);
+        assert!(should_suppress_touch_click(
+            &mut gesture,
+            "Three of Swords",
+            pinned_card.as_deref()
+        ));
+
+        gesture.pointer_down(4, 10.0, 20.0, Some("Three of Swords".to_string()));
+        let (card_name, show_preview) = gesture
+            .pointer_up(4, Some("Three of Swords"), pinned_card.as_deref())
+            .expect("second matching tap should complete");
+        assert!(!show_preview);
+        assert_eq!(card_name, "Three of Swords");
+        pinned_card = None;
+        assert!(!should_suppress_touch_click(
+            &mut gesture,
+            "Three of Swords",
+            pinned_card.as_deref()
+        ));
+    }
+
+    #[test]
+    fn touch_drag_cancels_preview_tap() {
+        let mut gesture = PreviewGesture::default();
+        gesture.pointer_down(1, 20.0, 30.0, Some("King of Coins".to_string()));
+        gesture.pointer_move(1, 20.0, 42.0);
+
+        assert_eq!(gesture.pointer_up(1, Some("King of Coins"), None), None);
+        assert_eq!(gesture.take_click("King of Coins"), None);
+    }
+
+    #[test]
+    fn touch_release_on_different_card_does_not_preview_or_suppress() {
+        let mut gesture = PreviewGesture::default();
+        gesture.pointer_down(2, 20.0, 30.0, Some("King of Coins".to_string()));
+
+        assert_eq!(gesture.pointer_up(2, Some("Four of Cups"), None), None);
+        assert_eq!(gesture.take_click("Four of Cups"), None);
+    }
+
+    #[test]
+    fn touch_release_outside_a_card_clears_the_active_gesture() {
+        let mut gesture = PreviewGesture::default();
+        gesture.pointer_down(9, 20.0, 30.0, Some("King of Coins".to_string()));
+
+        assert_eq!(gesture.pointer_up(9, None, None), None);
+        assert_eq!(gesture.pointer_up(9, Some("King of Coins"), None), None);
+        assert_eq!(gesture.take_click("King of Coins"), None);
+    }
+
+    #[test]
+    fn pointer_cancel_clears_active_and_pending_taps() {
+        let mut gesture = PreviewGesture::default();
+        gesture.pointer_down(6, 12.0, 18.0, Some("Seven of Swords".to_string()));
+        gesture.cancel();
+        assert_eq!(gesture.pointer_up(6, Some("Seven of Swords"), None), None);
+
+        gesture.pointer_down(8, 12.0, 18.0, Some("Seven of Swords".to_string()));
+        assert!(gesture
+            .pointer_up(8, Some("Seven of Swords"), None)
+            .is_some());
+        gesture.cancel();
+        assert!(!should_suppress_touch_click(
+            &mut gesture,
+            "Seven of Swords",
+            Some("Seven of Swords")
+        ));
+    }
+
+    #[test]
+    fn pending_tap_does_not_suppress_a_different_card_click() {
+        let mut gesture = PreviewGesture::default();
+        gesture.pointer_down(5, 12.0, 18.0, Some("Seven of Swords".to_string()));
+        assert!(gesture
+            .pointer_up(5, Some("Seven of Swords"), None)
+            .is_some());
+
+        assert!(!should_suppress_touch_click(
+            &mut gesture,
+            "Four of Cups",
+            Some("Seven of Swords")
+        ));
+        assert!(!should_suppress_touch_click(
+            &mut gesture,
+            "Seven of Swords",
+            Some("Seven of Swords")
+        ));
+    }
 
     #[test]
     fn complete_games_conserve_cards_and_points() {
