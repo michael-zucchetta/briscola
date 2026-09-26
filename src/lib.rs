@@ -18,6 +18,10 @@ pub mod rules;
 
 const FULL_DECK_SIZE: usize = 40;
 const COIN_TOSS_DISPLAY_MS: i32 = 2200;
+const GITHUB_REFERENCE_LABEL: &str = "GitHub Repo ↗";
+const GITHUB_REFERENCE_HREF: &str = "https://github.com/michael-zucchetta/briscola/";
+const GITHUB_REFERENCE_TARGET: &str = "_blank";
+const GITHUB_REFERENCE_REL: &str = "noopener noreferrer";
 
 #[derive(Clone, Copy)]
 enum Phase {
@@ -705,6 +709,13 @@ fn set_styles(document: &Document) {
             line-height: 1.2;
             letter-spacing: 0;
             text-transform: lowercase;
+        }
+
+        .briscola-app .github-reference {
+            font-size: 11px;
+            font-weight: 400;
+            text-transform: none;
+            vertical-align: middle;
         }
 
         .briscola-app .table-title::before {
@@ -2431,15 +2442,15 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     let title = create_element(document, "h1", "table-title");
     title.set_text_content(Some("Briscola "));
     let github_reference = create_element(document, "a", "github-reference");
-    github_reference.set_text_content(Some("GitHub repo"));
+    github_reference.set_text_content(Some(GITHUB_REFERENCE_LABEL));
     github_reference
-        .set_attribute("href", "https://github.com/michael-zucchetta/briscola")
+        .set_attribute("href", GITHUB_REFERENCE_HREF)
         .expect("GitHub link should have a destination");
     github_reference
-        .set_attribute("target", "_blank")
+        .set_attribute("target", GITHUB_REFERENCE_TARGET)
         .expect("GitHub link should open in a new tab");
     github_reference
-        .set_attribute("rel", "noopener noreferrer")
+        .set_attribute("rel", GITHUB_REFERENCE_REL)
         .expect("GitHub link should have safe external-link attributes");
     title
         .append_child(&github_reference)
