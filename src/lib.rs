@@ -18,7 +18,7 @@ pub mod rules;
 
 const FULL_DECK_SIZE: usize = 40;
 const COIN_TOSS_DISPLAY_MS: i32 = 2200;
-const GITHUB_REFERENCE_LABEL: &str = "github repo ↗";
+const GITHUB_REFERENCE_LABEL: &str = "GitHub Repo ↗";
 const GITHUB_REFERENCE_HREF: &str = "https://github.com/michael-zucchetta/briscola/";
 const GITHUB_REFERENCE_TARGET: &str = "_blank";
 const GITHUB_REFERENCE_REL: &str = "noopener noreferrer";
@@ -521,13 +521,14 @@ fn set_styles(document: &Document) {
             --reveal-card-width: 128px;
             box-sizing: border-box;
             width: 100%;
-            min-height: min(620px, 100vh);
+            height: 100%;
+            min-height: 0;
             background: var(--terminal-bg);
             color: var(--terminal-text);
             font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
         }
 
-        .briscola-app .table-board { position: relative; }
+        .briscola-app .table-board { position: relative; overflow: hidden; }
         .briscola-app .victory-layer {
             position: absolute; inset: 0; overflow: hidden; pointer-events: none;
             z-index: 2; display: grid; place-items: center;
@@ -568,22 +569,22 @@ fn set_styles(document: &Document) {
         }
         .briscola-app .game-setup-modal {
             width: min(420px, 100%); max-height: 100%; overflow-y: auto;
-            padding: 20px; border: 1px solid var(--terminal-cyan);
+            padding: 14px 18px; border: 1px solid var(--terminal-cyan);
             background: var(--terminal-panel);
             box-shadow: 0 0 28px color-mix(in srgb, var(--terminal-cyan) 24%, transparent);
         }
         .briscola-app .game-setup-modal h2 {
-            margin: 0 0 16px; color: var(--terminal-cyan); font-size: 17px; text-align: center;
+            margin: 0 0 10px; color: var(--terminal-cyan); font-size: 15px; text-align: center;
         }
         .briscola-app .setup-mode-options,
         .briscola-app .setup-difficulty-options {
             display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
         }
         .briscola-app .setup-section-label {
-            margin: 16px 0 7px; color: var(--terminal-muted); font-size: 12px; text-align: center;
+            margin: 10px 0 6px; color: var(--terminal-muted); font-size: 11px; text-align: center;
         }
         .briscola-app .game-setup-modal > .terminal-button {
-            display: block; margin: 18px auto 0;
+            display: block; margin: 12px auto 0;
         }
         .briscola-app .coin-toss-card {
             position: relative; width: var(--reveal-card-width);
@@ -669,7 +670,7 @@ fn set_styles(document: &Document) {
             height: 100vh;
             min-height: 100vh;
             overflow: hidden;
-            --card-width: clamp(54px, min(15vw, 18vh), 128px);
+            --card-width: clamp(54px, min(15vw, 12vh), 110px);
         }
 
         .briscola-app *,
@@ -679,7 +680,8 @@ fn set_styles(document: &Document) {
         }
 
         .briscola-app .dashboard {
-            min-height: min(620px, 100vh);
+            height: 100%;
+            min-height: 0;
             padding: 10px;
             display: grid;
             grid-template-rows: auto minmax(0, 1fr) auto;
@@ -704,15 +706,15 @@ fn set_styles(document: &Document) {
 
         .briscola-app .table-title {
             margin: 0;
-            color: #111;
-            font-size: 18px;
+            color: var(--terminal-text);
+            font-size: 15px;
             line-height: 1.2;
             letter-spacing: 0;
             text-transform: lowercase;
         }
 
         .briscola-app .table-brand {
-            color: #111;
+            color: var(--terminal-green);
             text-shadow: 0 0 4px rgba(28, 186, 34, 0.58);
         }
 
@@ -726,6 +728,13 @@ fn set_styles(document: &Document) {
             text-decoration: none;
             text-shadow: none;
             vertical-align: middle;
+        }
+
+        .briscola-app .github-reference:hover,
+        .briscola-app .github-reference:focus-visible {
+            color: var(--terminal-cyan);
+            text-decoration: underline;
+            text-underline-offset: 3px;
         }
 
         .briscola-app .table-title::before {
@@ -821,13 +830,19 @@ fn set_styles(document: &Document) {
             gap: 12px;
             border: 1px solid var(--terminal-border);
             background: var(--terminal-bg);
-            overflow: auto;
+            overflow: hidden;
         }
 
         .briscola-app .player-zone {
             display: grid;
             gap: 6px;
             justify-items: center;
+        }
+
+        .briscola-app .table-middle,
+        .briscola-app .player-zone,
+        .briscola-app .player-hand {
+            min-height: 0;
         }
 
         .briscola-app .player-label,
@@ -839,6 +854,10 @@ fn set_styles(document: &Document) {
             line-height: 1.25;
             letter-spacing: 0;
             text-transform: uppercase;
+        }
+
+        .briscola-app .player-label {
+            font-weight: 700;
         }
 
         .briscola-app .player-hand {
@@ -869,6 +888,33 @@ fn set_styles(document: &Document) {
             justify-items: center;
             align-content: center;
             min-width: 0;
+        }
+
+        @media (min-width: 721px) {
+            .briscola-app .player-zone {
+                grid-template-columns: 52px minmax(0, 1fr);
+                align-items: center;
+                justify-items: stretch;
+                gap: 12px;
+            }
+
+            .briscola-app .player-label {
+                text-align: left;
+            }
+
+            .briscola-app .player-hand {
+                justify-content: flex-start;
+            }
+
+            .briscola-app .stack-panel {
+                padding: 0;
+                align-content: start;
+            }
+
+            .briscola-app.fill-screen .table-board {
+                grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
+                align-content: stretch;
+            }
         }
 
         .briscola-app .stack-label {
@@ -927,8 +973,16 @@ fn set_styles(document: &Document) {
             grid-row: 1;
         }
 
+        .briscola-app .stack-count-row {
+            display: flex;
+            align-items: baseline;
+            justify-content: center;
+            gap: 4px;
+            margin-top: 8px;
+        }
+
         .briscola-app .stack-count {
-            margin: 8px 0 0;
+            margin: 0;
             text-align: center;
             color: var(--terminal-green);
             font-size: 18px;
@@ -937,7 +991,7 @@ fn set_styles(document: &Document) {
         }
 
         .briscola-app .stack-caption {
-            margin: 4px 0 0;
+            margin: 0;
             text-align: center;
             color: var(--terminal-muted);
             font-size: 11px;
@@ -1131,10 +1185,20 @@ fn set_styles(document: &Document) {
             }
 
             .briscola-app .dashboard {
-                min-height: 100vh;
-                min-height: 100dvh;
+                min-height: 0;
                 padding: 6px;
                 gap: 8px;
+            }
+
+            .briscola-app .table-board {
+                grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
+                overflow: hidden;
+            }
+
+            .briscola-app .player-zone .player-hand {
+                min-height: 0;
+                max-height: 100%;
+                overflow: hidden;
             }
 
             .briscola-app.fill-screen,
@@ -1143,6 +1207,12 @@ fn set_styles(document: &Document) {
                 height: 100dvh;
                 min-height: 100vh;
                 min-height: 100dvh;
+            }
+
+            .briscola-app:not(.fill-screen),
+            .briscola-app:not(.fill-screen) .dashboard {
+                height: 100%;
+                min-height: 0;
             }
 
             .briscola-app .table-header {
@@ -1186,13 +1256,16 @@ fn set_styles(document: &Document) {
             }
 
             .briscola-app .stack-count {
-                margin-top: 4px;
                 font-size: 14px;
             }
 
             .briscola-app .stack-caption {
-                margin-top: 2px;
                 font-size: 10px;
+            }
+
+            .briscola-app .stack-count-row {
+                margin-top: 4px;
+                gap: 3px;
             }
 
             .briscola-app .trump-panel::after {
@@ -2222,8 +2295,12 @@ fn build_deck_panel(document: &Document, deck_size: usize) -> Element {
         .append_child(&stack)
         .expect("deck stack should be appended");
 
-    append_text(document, &panel, "p", "stack-count", &deck_size.to_string());
-    append_text(document, &panel, "p", "stack-caption", "remaining");
+    let count_row = create_element(document, "div", "stack-count-row");
+    append_text(document, &count_row, "p", "stack-count", &deck_size.to_string());
+    append_text(document, &count_row, "p", "stack-caption", "remaining");
+    panel
+        .append_child(&count_row)
+        .expect("deck count row should be appended");
     panel
 }
 

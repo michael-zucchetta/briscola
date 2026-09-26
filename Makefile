@@ -1,4 +1,4 @@
-.PHONY: init wasm-pack build build-production-white build-production-terminal github-pages serve verify-firefox
+.PHONY: init wasm-pack build build-full build-production-white build-production-terminal github-pages serve verify-firefox capture-readme-screenshot
 
 # cargo  install miniserve
 #
@@ -11,6 +11,11 @@ wasm-pack:
 build:
 	CARGO_HOME=$(CURDIR)/.cargo-home TMPDIR=/tmp CARGO_TARGET_DIR=/tmp/briscola-wasm-pack-target wasm-pack build --target web --out-name wasm --out-dir ./demo
 	printf '%s\n' '*' '!.gitignore' '!index.html' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./demo/.gitignore
+
+build-full: build capture-readme-screenshot
+
+capture-readme-screenshot:
+	python3 scripts/capture-readme-screenshot.py
 
 build-production-white:
 	CARGO_HOME=$(CURDIR)/.cargo-home TMPDIR=/tmp CARGO_TARGET_DIR=/tmp/briscola-wasm-pack-target RUSTFLAGS="-C opt-level=3" wasm-pack build --release --target web --out-name wasm --out-dir ./demo
