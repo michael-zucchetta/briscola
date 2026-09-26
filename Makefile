@@ -15,16 +15,17 @@ build:
 build-production-white:
 	CARGO_HOME=$(CURDIR)/.cargo-home TMPDIR=/tmp CARGO_TARGET_DIR=/tmp/briscola-wasm-pack-target RUSTFLAGS="-C opt-level=3" wasm-pack build --release --target web --out-name wasm --out-dir ./demo
 	printf '%s\n' '*' '!.gitignore' '!index.html' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./demo/.gitignore
-	sed -i '/<body /s/data-production-theme="[^"]*"/data-production-theme="white"/' demo/index.html
+	sed -i '/<body /s/data-production-theme="[^"]*"/data-production-theme="white"/' index.html
 
 build-production-terminal:
 	CARGO_HOME=$(CURDIR)/.cargo-home TMPDIR=/tmp CARGO_TARGET_DIR=/tmp/briscola-wasm-pack-target RUSTFLAGS="-C opt-level=3" wasm-pack build --release --target web --out-name wasm --out-dir ./demo
 	printf '%s\n' '*' '!.gitignore' '!index.html' '!wasm.js' '!wasm_bg.js' '!wasm_bg.wasm' '!wasm.d.ts' '!wasm_bg.wasm.d.ts' '!package.json' > ./demo/.gitignore
-	sed -i '/<body /s/data-production-theme="[^"]*"/data-production-theme="terminal"/' demo/index.html
+	sed -i '/<body /s/data-production-theme="[^"]*"/data-production-theme="terminal"/' index.html
 
 github-pages: build-production-white
-	mkdir -p docs
-	cp demo/index.html demo/wasm.js demo/wasm_bg.wasm docs/
+	mkdir -p docs/demo
+	cp index.html docs/
+	cp demo/wasm.js demo/wasm_bg.wasm docs/demo/
 	touch docs/.nojekyll
 	@echo "GitHub Pages files ready in docs/. Commit and push docs/, then select your branch and /docs in Settings > Pages."
 

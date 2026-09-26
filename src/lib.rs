@@ -18,7 +18,7 @@ pub mod rules;
 
 const FULL_DECK_SIZE: usize = 40;
 const COIN_TOSS_DISPLAY_MS: i32 = 2200;
-const GITHUB_REFERENCE_LABEL: &str = "GitHub Repo ↗";
+const GITHUB_REFERENCE_LABEL: &str = "github repo ↗";
 const GITHUB_REFERENCE_HREF: &str = "https://github.com/michael-zucchetta/briscola/";
 const GITHUB_REFERENCE_TARGET: &str = "_blank";
 const GITHUB_REFERENCE_REL: &str = "noopener noreferrer";
@@ -704,30 +704,32 @@ fn set_styles(document: &Document) {
 
         .briscola-app .table-title {
             margin: 0;
-            color: var(--terminal-green);
+            color: #111;
             font-size: 18px;
             line-height: 1.2;
             letter-spacing: 0;
             text-transform: lowercase;
         }
 
+        .briscola-app .table-brand {
+            color: #111;
+            text-shadow: 0 0 4px rgba(28, 186, 34, 0.58);
+        }
+
         .briscola-app .github-reference {
-            font-size: 11px;
+            display: inline-block;
+            width: fit-content;
+            color: var(--terminal-muted);
+            font-size: 0.78rem;
             font-weight: 400;
             text-transform: none;
+            text-decoration: none;
+            text-shadow: none;
             vertical-align: middle;
         }
 
         .briscola-app .table-title::before {
-            content: "$ ";
-            color: var(--terminal-cyan);
-        }
-
-        .briscola-app .table-subtitle {
-            margin: 2px 0 0;
-            color: var(--terminal-muted);
-            font-size: 12px;
-            line-height: 1.35;
+            content: "";
         }
 
         .briscola-app .header-rail,
@@ -2440,7 +2442,13 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     let header = create_element(document, "header", "table-header");
     let title_wrap = create_element(document, "div", "");
     let title = create_element(document, "h1", "table-title");
-    title.set_text_content(Some("Briscola "));
+    title.set_text_content(Some("./"));
+    let brand = create_element(document, "span", "table-brand");
+    brand.set_text_content(Some("briscola"));
+    title
+        .append_child(&brand)
+        .expect("Briscola brand should be appended to the title");
+    append_text(document, &title, "span", "", " --wasm --browser-game | ");
     let github_reference = create_element(document, "a", "github-reference");
     github_reference.set_text_content(Some(GITHUB_REFERENCE_LABEL));
     github_reference
@@ -2458,13 +2466,6 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     title_wrap
         .append_child(&title)
         .expect("title should be appended");
-    append_text(
-        document,
-        &title_wrap,
-        "p",
-        "table-subtitle",
-        "wasm / browser game",
-    );
     header
         .append_child(&title_wrap)
         .expect("header title should be appended");
