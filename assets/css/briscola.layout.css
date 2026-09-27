@@ -698,17 +698,17 @@
 
 @media (max-width: 720px) {
   .briscola-app {
-    --card-width: min(112px, calc((95vw - 70px) / 3));
+    --card-width: min(112px, calc((90vw - 70px) / 3));
     --middle-card-width: calc(25vw - 18.5px);
     --reveal-card-width: clamp(150px, 44vw, 200px);
     font-size: 13px;
   }
 
-  .briscola-app .dashboard { gap: 10px; padding: 10px; }
-  .briscola-app .table-header { grid-template-columns: 1fr; gap: 8px; padding: 10px; }
+  .briscola-app .dashboard { gap: 10px; padding: 6px 2px; }
+  .briscola-app .table-header { grid-template-columns: 1fr; gap: 8px; padding: 10px 4px; }
   .briscola-app .header-rail { justify-content: stretch; flex-wrap: wrap; }
   .briscola-app .trick-status { flex: 1 1 100%; text-align: center; }
-  .briscola-app .table-board { gap: 8px; padding: 12px 8px; }
+  .briscola-app .table-board { gap: 8px; padding: 12px 2px; }
   .briscola-app .player-zone {
     position: relative;
     grid-template-columns: minmax(0, 1fr);
