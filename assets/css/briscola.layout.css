@@ -747,7 +747,7 @@
   .briscola-app .stack-count { font-size: 17px; }
   .briscola-app .footer-bar { justify-content: space-between; gap: 2px; }
   .briscola-app .footer-pill { padding: 1px 3px; font-size: 9px; }
-  .briscola-app .table-title { font-size: 16px; }
+  .briscola-app .table-title { font-size: 11px; }
   .briscola-app .terminal-button {
     min-height: 28px;
     padding: 3px 6px;
@@ -777,7 +777,7 @@
     font-size: 12px;
   }
 
-  .briscola-app .table-title { font-size: 16px; }
+  .briscola-app .table-title { font-size: 11px; }
   .briscola-app .terminal-button {
     min-height: 28px;
     padding: 3px 6px;
