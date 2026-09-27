@@ -1,0 +1,10 @@
+.briscola-app.theme-white {
+  --game-bg: #fff;
+  --game-text: #111;
+  --game-muted: #666;
+  --game-line: #d8d8d8;
+  --game-active: #bcbcbc;
+  --game-cyan: #111;
+  --game-green: #111;
+  --game-amber: #444;
+}
