@@ -1,0 +1,10 @@
+.briscola-app {
+  --game-bg: #000;
+  --game-text: #fff;
+  --game-muted: #9a9a9a;
+  --game-line: #303030;
+  --game-active: #457294;
+  --game-cyan: #00ffff;
+  --game-green: #1cba22;
+  --game-amber: #d8a100;
+}

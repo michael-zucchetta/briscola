@@ -63,7 +63,6 @@ struct BrowserGame {
     mode: GameMode,
     player1_difficulty: ai::AiDifficulty,
     player2_difficulty: ai::AiDifficulty,
-    fill_screen: bool,
     last_dealt_player: Option<usize>,
     last_played_player: Option<usize>,
     tick_generation: u32,
@@ -97,7 +96,6 @@ impl BrowserGame {
             mode: GameMode::HumanVsAi,
             player1_difficulty: ai::AiDifficulty::Random,
             player2_difficulty: ai::AiDifficulty::Challenger,
-            fill_screen: false,
             last_dealt_player: None,
             last_played_player: None,
             tick_generation: 0,
@@ -226,13 +224,11 @@ impl BrowserGame {
         let mode = self.mode;
         let player1_difficulty = self.player1_difficulty;
         let player2_difficulty = self.player2_difficulty;
-        let fill_screen = self.fill_screen;
         let tick_generation = self.tick_generation.wrapping_add(1);
         *self = BrowserGame::new();
         self.mode = mode;
         self.player1_difficulty = player1_difficulty;
         self.player2_difficulty = player2_difficulty;
-        self.fill_screen = fill_screen;
         self.tick_generation = tick_generation;
     }
 
@@ -249,10 +245,6 @@ impl BrowserGame {
             self.phase = Phase::CoinToss;
             self.status = "coin toss / deciding who plays first".to_string();
         }
-    }
-
-    fn toggle_fill_screen(&mut self) {
-        self.fill_screen = !self.fill_screen;
     }
 
     fn tick_generation(&self) -> u32 {
@@ -505,912 +497,13 @@ fn set_styles(document: &Document) {
     style
         .set_attribute("id", "briscola-styles")
         .expect("style id should be set");
-    style.set_inner_html(
-        r#"
-        .briscola-app {
-            --terminal-bg: #000;
-            --terminal-panel: #050505;
-            --terminal-border: #303030;
-            --terminal-active: #457294;
-            --terminal-cyan: #00ffff;
-            --terminal-green: #1cba22;
-            --terminal-amber: #d8a100;
-            --terminal-text: #ffffff;
-            --terminal-muted: #9a9a9a;
-            --card-width: clamp(48px, min(12vw, 13vh), 78px);
-            --reveal-card-width: 128px;
-            box-sizing: border-box;
-            width: 100%;
-            height: 100%;
-            min-height: 0;
-            background: var(--terminal-bg);
-            color: var(--terminal-text);
-            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-        }
-
-        .briscola-app .table-board { position: relative; overflow: hidden; }
-        .briscola-app .victory-layer {
-            position: absolute; inset: 0; overflow: hidden; pointer-events: none;
-            z-index: 2; display: grid; place-items: center;
-        }
-        .briscola-app .coin-toss-layer {
-            position: absolute; inset: 0; z-index: 3; display: grid; place-items: center;
-            padding: 20px; background: color-mix(in srgb, var(--terminal-bg) 82%, transparent);
-        }
-        .briscola-app .coin-toss-modal {
-            width: min(320px, 100%); padding: 24px; text-align: center;
-            border: 1px solid var(--terminal-cyan); background: var(--terminal-panel);
-            box-shadow: 0 0 28px color-mix(in srgb, var(--terminal-cyan) 28%, transparent);
-        }
-        .briscola-app .coin-toss-modal h2 { margin: 0 0 14px; font-size: 16px; color: var(--terminal-cyan); }
-        .briscola-app .coin-toss-coin {
-            width: var(--reveal-card-width); height: calc(var(--reveal-card-width) * 1.5);
-            margin: 0 auto 16px; perspective: 700px;
-            animation: briscola-coin-toss 1500ms cubic-bezier(.2, .75, .3, 1) both;
-        }
-        .briscola-app .trump-reveal-layer {
-            position: absolute; inset: 0; z-index: 3; display: grid; place-items: center;
-            padding: 20px; background: color-mix(in srgb, var(--terminal-bg) 82%, transparent);
-        }
-        .briscola-app .trump-reveal-modal {
-            width: min(320px, 100%); padding: 24px; text-align: center;
-            border: 1px solid var(--terminal-cyan); background: var(--terminal-panel);
-            box-shadow: 0 0 28px color-mix(in srgb, var(--terminal-cyan) 28%, transparent);
-        }
-        .briscola-app .trump-reveal-modal h2 { margin: 0 0 14px; font-size: 16px; color: var(--terminal-cyan); }
-        .briscola-app .trump-reveal-modal .card-shell {
-            width: var(--reveal-card-width); min-width: var(--reveal-card-width);
-            margin: 0 auto 14px;
-        }
-        .briscola-app .trump-reveal-modal p { margin: 0; font-size: 15px; }
-        .briscola-app .game-setup-layer {
-            position: absolute; inset: 0; z-index: 4; display: grid; place-items: center;
-            padding: 16px; background: var(--terminal-bg);
-        }
-        .briscola-app .game-setup-modal {
-            width: min(420px, 100%); max-height: 100%; overflow-y: auto;
-            padding: 14px 18px; border: 1px solid var(--terminal-cyan);
-            background: var(--terminal-panel);
-            box-shadow: 0 0 28px color-mix(in srgb, var(--terminal-cyan) 24%, transparent);
-        }
-        .briscola-app .game-setup-modal h2 {
-            margin: 0 0 10px; color: var(--terminal-cyan); font-size: 15px; text-align: center;
-        }
-        .briscola-app .setup-mode-options,
-        .briscola-app .setup-difficulty-options {
-            display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
-        }
-        .briscola-app .setup-section-label {
-            margin: 10px 0 6px; color: var(--terminal-muted); font-size: 11px; text-align: center;
-        }
-        .briscola-app .game-setup-modal > .terminal-button {
-            display: block; margin: 12px auto 0;
-        }
-        .briscola-app .coin-toss-card {
-            position: relative; width: var(--reveal-card-width);
-            height: calc(var(--reveal-card-width) * 1.5); transform-style: preserve-3d;
-            transform-origin: center center;
-            animation: briscola-coin-flip-ai 1500ms ease-in-out both;
-        }
-        .briscola-app .coin-toss-face {
-            position: absolute; inset: 0; width: var(--reveal-card-width);
-            height: calc(var(--reveal-card-width) * 1.5); overflow: hidden;
-            backface-visibility: hidden; -webkit-backface-visibility: hidden;
-            transform: translateZ(.5px);
-        }
-        .briscola-app .coin-toss-face .card-shell {
-            width: var(--reveal-card-width); min-width: var(--reveal-card-width);
-            height: calc(var(--reveal-card-width) * 1.5); aspect-ratio: auto;
-        }
-        .briscola-app .coin-toss-face.back { transform: rotateY(180deg) translateZ(.5px); }
-        .briscola-app .coin-toss-card.player-opens { animation-name: briscola-coin-flip-player; }
-        @keyframes briscola-coin-flip-ai {
-            0% { transform: rotateY(0deg); }
-            100% { transform: rotateY(1440deg); }
-        }
-        @keyframes briscola-coin-flip-player {
-            0% { transform: rotateY(0deg); }
-            100% { transform: rotateY(1620deg); }
-        }
-        .briscola-app .coin-toss-modal p { margin: 0; }
-        @keyframes briscola-coin-toss {
-            0% { opacity: 0; transform: translateY(85px) scale(.7); }
-            20% { opacity: 1; }
-            55% { transform: translateY(-72px) scale(1.08); }
-            100% { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        .briscola-app .victory-result {
-            text-align: center; padding: 20px; border: 1px solid var(--terminal-active);
-            background: var(--terminal-panel); color: var(--terminal-text);
-            position: relative; z-index: 1;
-        }
-        .briscola-app .victory-result h2 { margin: 0 0 10px; }
-        .briscola-app .victory-result p { margin: 0; }
-        .briscola-app .firework-burst { position: absolute; width: 8px; height: 8px; }
-        .briscola-app .firework-burst:nth-child(1) { left: 24%; top: 24%; }
-        .briscola-app .firework-burst:nth-child(2) { left: 52%; top: 18%; }
-        .briscola-app .firework-burst:nth-child(3) { left: 76%; top: 30%; }
-        .briscola-app .firework-burst span {
-            position: absolute; width: 6px; height: 6px; border-radius: 50%;
-            background: var(--terminal-green); opacity: 0;
-            animation: briscola-spark-pop 1600ms ease-out 3 both;
-        }
-        .briscola-app .firework-burst span:nth-child(3n + 1) { background: var(--terminal-cyan); }
-        .briscola-app .firework-burst span:nth-child(3n + 2) { background: var(--terminal-amber); }
-        @keyframes briscola-spark-pop {
-            0% { opacity: 0; transform: rotate(var(--angle)) translateX(0) scale(.4); }
-            16% { opacity: .95; }
-            100% { opacity: 0; transform: rotate(var(--angle)) translateX(var(--distance)) scale(.8); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-            .briscola-app .firework-burst { display: none; }
-            .briscola-app .dealt-card-to-you, .briscola-app .dealt-card-to-challenger,
-            .briscola-app .played-card-from-you, .briscola-app .played-card-from-challenger,
-            .briscola-app .coin-toss-coin, .briscola-app .coin-toss-card {
-                animation: none;
-            }
-        }
-
-        .briscola-app.theme-white {
-            --terminal-bg: #fff;
-            --terminal-panel: #fff;
-            --terminal-border: #d8d8d8;
-            --terminal-active: #bcbcbc;
-            --terminal-cyan: #111;
-            --terminal-green: #111;
-            --terminal-amber: #444;
-            --terminal-text: #111;
-            --terminal-muted: #666;
-        }
-
-        .briscola-app.fill-screen {
-            position: fixed;
-            inset: 0;
-            z-index: 2147483647;
-            height: 100vh;
-            min-height: 100vh;
-            overflow: hidden;
-            --card-width: clamp(54px, min(15vw, 12vh), 110px);
-        }
-
-        .briscola-app *,
-        .briscola-app *::before,
-        .briscola-app *::after {
-            box-sizing: border-box;
-        }
-
-        .briscola-app .dashboard {
-            height: 100%;
-            min-height: 0;
-            padding: 10px;
-            display: grid;
-            grid-template-rows: auto minmax(0, 1fr) auto;
-            gap: 10px;
-            background: var(--terminal-bg);
-        }
-
-        .briscola-app.fill-screen .dashboard {
-            height: 100vh;
-            min-height: 100vh;
-        }
-
-        .briscola-app .table-header {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) minmax(0, auto);
-            gap: 8px;
-            align-items: start;
-            padding: 8px 10px;
-            border: 1px solid var(--terminal-active);
-            background: var(--terminal-panel);
-        }
-
-        .briscola-app .table-title {
-            margin: 0;
-            color: var(--terminal-text);
-            font-size: 15px;
-            line-height: 1.2;
-            letter-spacing: 0;
-            text-transform: lowercase;
-        }
-
-        .briscola-app .table-brand {
-            color: var(--terminal-green);
-            text-shadow: 0 0 4px rgba(28, 186, 34, 0.58);
-        }
-
-        .briscola-app .github-reference {
-            display: inline-block;
-            width: fit-content;
-            color: var(--terminal-muted);
-            font-size: 0.78rem;
-            font-weight: 400;
-            text-transform: none;
-            text-decoration: none;
-            text-shadow: none;
-            vertical-align: middle;
-        }
-
-        .briscola-app .github-reference:hover,
-        .briscola-app .github-reference:focus-visible {
-            color: var(--terminal-cyan);
-            text-decoration: underline;
-            text-underline-offset: 3px;
-        }
-
-        .briscola-app .table-title::before {
-            content: "";
-        }
-
-        .briscola-app .header-rail,
-        .briscola-app .footer-bar,
-        .briscola-app .control-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            align-items: center;
-        }
-
-        .briscola-app .control-label {
-            color: var(--terminal-muted);
-            font-size: 11px;
-            line-height: 1.2;
-            white-space: nowrap;
-        }
-
-        .briscola-app .header-rail {
-            justify-content: flex-end;
-        }
-
-        .briscola-app .header-pill,
-        .briscola-app .footer-pill {
-            padding: 2px 6px;
-            border: 1px solid var(--terminal-border);
-            background: transparent;
-            color: var(--terminal-text);
-            font-size: 12px;
-            line-height: 1.35;
-        }
-
-        .briscola-app .trick-status {
-            padding: 7px 12px;
-            font-size: 16px;
-            font-weight: 700;
-            line-height: 1.4;
-            border-width: 2px;
-            background: #211900;
-        }
-
-        .briscola-app.theme-white .trick-status {
-            background: #fff5d6;
-        }
-
-        .briscola-app .header-pill:first-child,
-        .briscola-app .footer-pill.action {
-            color: var(--terminal-amber);
-            border-color: var(--terminal-amber);
-        }
-
-        .briscola-app .terminal-button {
-            min-height: 24px;
-            padding: 2px 8px;
-            border: 1px solid var(--terminal-border);
-            border-radius: 0;
-            background: var(--terminal-bg);
-            color: var(--terminal-cyan);
-            cursor: pointer;
-            font: inherit;
-            font-size: 12px;
-            line-height: 1.2;
-        }
-
-        .briscola-app .terminal-button:hover,
-        .briscola-app .terminal-button:focus-visible,
-        .briscola-app .terminal-button.active {
-            outline: none;
-            border-color: var(--terminal-cyan);
-            background: #052323;
-        }
-
-        .briscola-app .terminal-button.active {
-            color: var(--terminal-green);
-        }
-
-        .briscola-app.theme-white .terminal-button:hover,
-        .briscola-app.theme-white .terminal-button:focus-visible,
-        .briscola-app.theme-white .terminal-button.active {
-            background: #f4f4f4;
-        }
-
-        .briscola-app .table-board {
-            min-height: 0;
-            padding: 10px;
-            display: grid;
-            grid-template-rows: auto auto auto;
-            align-content: center;
-            gap: 12px;
-            border: 1px solid var(--terminal-border);
-            background: var(--terminal-bg);
-            overflow: hidden;
-        }
-
-        .briscola-app .player-zone {
-            display: grid;
-            gap: 6px;
-            justify-items: center;
-        }
-
-        .briscola-app .table-middle,
-        .briscola-app .player-zone,
-        .briscola-app .player-hand {
-            min-height: 0;
-        }
-
-        .briscola-app .player-label,
-        .briscola-app .stack-label,
-        .briscola-app .trick-slot-label {
-            margin: 0;
-            color: var(--terminal-green);
-            font-size: 12px;
-            line-height: 1.25;
-            letter-spacing: 0;
-            text-transform: uppercase;
-        }
-
-        .briscola-app .player-label {
-            font-weight: 700;
-        }
-
-        .briscola-app .player-hand {
-            min-height: calc((var(--card-width) * 1.5) + 12px);
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .briscola-app .table-middle {
-            display: grid;
-            grid-template-columns:
-                minmax(calc(var(--card-width) * 1.55), calc(var(--card-width) * 2.15))
-                minmax(calc(var(--card-width) * 2.45), calc(var(--card-width) * 3))
-                minmax(calc(var(--card-width) * 1.55), calc(var(--card-width) * 2.15));
-            justify-content: center;
-            align-items: stretch;
-            gap: 10px;
-        }
-
-        .briscola-app .stack-panel {
-            padding: 8px;
-            border: 1px solid var(--terminal-border);
-            background: var(--terminal-panel);
-            display: grid;
-            justify-items: center;
-            align-content: center;
-            min-width: 0;
-        }
-
-        @media (min-width: 721px) {
-            .briscola-app .player-zone {
-                grid-template-columns: 52px minmax(0, 1fr);
-                align-items: center;
-                justify-items: stretch;
-                gap: 12px;
-            }
-
-            .briscola-app .player-label {
-                text-align: left;
-            }
-
-            .briscola-app .player-hand {
-                justify-content: flex-start;
-            }
-
-            .briscola-app .stack-panel {
-                padding: 0;
-                align-content: start;
-            }
-
-            .briscola-app.fill-screen .table-board {
-                grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
-                align-content: stretch;
-            }
-        }
-
-        .briscola-app .stack-label {
-            margin-bottom: 8px;
-            color: var(--terminal-cyan);
-        }
-
-        .briscola-app .deck-stack,
-        .briscola-app .trick-stack {
-            position: relative;
-            width: var(--card-width);
-            height: calc(var(--card-width) * 1.5);
-            margin: 0 auto;
-        }
-
-        .briscola-app .deck-stack .card-shell {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            min-width: 0;
-        }
-
-        .briscola-app .deck-stack .card-back {
-            transform: none;
-        }
-
-        .briscola-app .deck-stack .card-back:nth-last-child(2) {
-            transform: translate(4px, 3px);
-        }
-
-        .briscola-app .deck-stack .card-back:nth-last-child(3) {
-            transform: translate(8px, 6px);
-        }
-
-        .briscola-app .trick-slots {
-            display: grid;
-            grid-template-columns: repeat(2, var(--card-width));
-            justify-content: center;
-            gap: 8px;
-            justify-items: center;
-            width: 100%;
-        }
-
-        .briscola-app .trick-slot {
-            display: grid;
-            gap: 6px;
-            justify-items: center;
-        }
-
-        .briscola-app .trick-slot-label {
-            grid-row: 2;
-        }
-
-        .briscola-app .trick-slot .card-shell,
-        .briscola-app .trick-slot .card-placeholder {
-            grid-row: 1;
-        }
-
-        .briscola-app .stack-count-row {
-            display: flex;
-            align-items: baseline;
-            justify-content: center;
-            gap: 4px;
-            margin-top: 8px;
-        }
-
-        .briscola-app .stack-count {
-            margin: 0;
-            text-align: center;
-            color: var(--terminal-green);
-            font-size: 18px;
-            line-height: 1.1;
-            font-weight: 700;
-        }
-
-        .briscola-app .stack-caption {
-            margin: 0;
-            text-align: center;
-            color: var(--terminal-muted);
-            font-size: 11px;
-            line-height: 1.3;
-        }
-
-        .briscola-app .trump-panel::after {
-            content: "";
-            display: block;
-            height: 1.1em;
-            margin-top: 8px;
-            font-size: 18px;
-            line-height: 1.1;
-        }
-
-        .briscola-app .card-shell,
-        .briscola-app .card-button,
-        .briscola-app .card-placeholder {
-            width: var(--card-width);
-            min-width: var(--card-width);
-            aspect-ratio: 2 / 3;
-            border-radius: 2px;
-            overflow: hidden;
-            box-shadow: none;
-            background: transparent;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .briscola-app .card-button {
-            padding: 0;
-            border: 1px solid transparent;
-            cursor: pointer;
-            transition: transform 140ms ease;
-            background: transparent;
-        }
-
-        .briscola-app .card-button:hover,
-        .briscola-app .card-button:focus-visible {
-            outline: 1px solid var(--terminal-cyan);
-            outline-offset: 2px;
-            transform: translateY(-3px);
-        }
-
-        .briscola-app .card-shell svg,
-        .briscola-app .card-button svg {
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        .briscola-app .card-back {
-            border: 0;
-            background: transparent;
-        }
-
-        .briscola-app .card-zoom {
-            position: fixed;
-            z-index: 100;
-            pointer-events: none;
-            filter: drop-shadow(0 8px 12px #0009);
-            aspect-ratio: 2 / 3;
-        }
-
-        .briscola-app .card-zoom-image svg {
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
-        .briscola-app .card-zoom-hint {
-            padding: 2px;
-            background: var(--terminal-panel);
-            color: var(--terminal-text);
-            border: 1px solid var(--terminal-active);
-            font: 11px/14px ui-monospace, monospace;
-            text-align: center;
-        }
-
-        .briscola-app .card-zoom-instruction {
-            display: block;
-            margin-top: 1px;
-            color: var(--terminal-muted);
-        }
-
-        .briscola-app .card-zoom-name {
-            display: block;
-            padding: 0 2px;
-            background: #180605;
-            color: #ff554d;
-            font-weight: 700;
-            letter-spacing: .08em;
-            text-shadow: 0 0 5px #ff251e;
-            text-transform: uppercase;
-        }
-
-        .briscola-app.theme-white .card-zoom-name {
-            background: #fff;
-            color: #a32620;
-            text-shadow: none;
-        }
-
-        .briscola-app .dealt-card-to-challenger {
-            animation: deal-to-challenger 280ms cubic-bezier(.2, .8, .2, 1) both;
-        }
-
-        .briscola-app .dealt-card-to-you {
-            animation: deal-to-you 280ms cubic-bezier(.2, .8, .2, 1) both;
-        }
-
-        .briscola-app .played-card-from-challenger {
-            animation: play-from-challenger 320ms cubic-bezier(.16, .9, .24, 1) both;
-        }
-
-        .briscola-app .played-card-from-you {
-            animation: play-from-you 320ms cubic-bezier(.16, .9, .24, 1) both;
-        }
-
-        @keyframes deal-to-challenger {
-            from {
-                opacity: .35;
-                transform: translateY(145px) scale(.92);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        @keyframes deal-to-you {
-            from {
-                opacity: .35;
-                transform: translateY(-145px) scale(.92);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        @keyframes play-from-challenger {
-            from {
-                opacity: .35;
-                transform: translateY(-90px) scale(.9);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        @keyframes play-from-you {
-            from {
-                opacity: .35;
-                transform: translateY(90px) scale(.9);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-
-        .briscola-app .card-placeholder::after {
-            content: "";
-            width: calc(100% - 12px);
-            height: calc(100% - 12px);
-            border: 1px solid var(--terminal-border);
-        }
-
-        .briscola-app .card-placeholder {
-            border: 1px dashed var(--terminal-border);
-            background: var(--terminal-panel);
-        }
-
-        @media (max-width: 720px) {
-            .briscola-app .bigger-view-toggle {
-                display: none;
-            }
-
-            .briscola-app {
-                --card-width: clamp(40px, min(16vw, 13vh), 64px);
-                --reveal-card-width: clamp(140px, 43vw, 168px);
-                min-height: 100vh;
-                min-height: 100dvh;
-            }
-
-            .briscola-app.fill-screen {
-                --card-width: clamp(60px, 24vw, 96px);
-                --middle-card-width: clamp(68px, min(22vw, 13dvh), 92px);
-            }
-
-            .briscola-app .dashboard {
-                min-height: 0;
-                padding: 6px;
-                gap: 8px;
-            }
-
-            .briscola-app .table-board {
-                grid-template-rows: minmax(0, auto) minmax(0, 1fr) minmax(0, auto);
-                overflow: hidden;
-            }
-
-            .briscola-app .player-zone .player-hand {
-                min-height: 0;
-                max-height: 100%;
-                overflow: hidden;
-            }
-
-            .briscola-app.fill-screen,
-            .briscola-app.fill-screen .dashboard {
-                height: 100vh;
-                height: 100dvh;
-                min-height: 100vh;
-                min-height: 100dvh;
-            }
-
-            .briscola-app:not(.fill-screen),
-            .briscola-app:not(.fill-screen) .dashboard {
-                height: 100%;
-                min-height: 0;
-            }
-
-            .briscola-app .table-header {
-                grid-template-columns: 1fr;
-            }
-
-            .briscola-app .table-middle {
-                grid-template-columns: repeat(3, minmax(0, 1fr));
-                justify-content: stretch;
-                width: 100%;
-                gap: 4px;
-            }
-
-            .briscola-app.fill-screen .table-middle {
-                grid-template-columns: minmax(0, 1.1fr) minmax(0, 2.3fr) minmax(0, 1.1fr);
-            }
-
-            .briscola-app.fill-screen .table-board {
-                padding: 8px;
-                gap: 8px;
-                align-content: space-evenly;
-            }
-
-            .briscola-app .stack-panel {
-                padding: 4px;
-                width: 100%;
-            }
-
-            .briscola-app .stack-label {
-                margin-bottom: 4px;
-            }
-
-            .briscola-app .trick-slots {
-                gap: 4px;
-            }
-
-            .briscola-app .player-label,
-            .briscola-app .stack-label,
-            .briscola-app .trick-slot-label {
-                font-size: 10px;
-            }
-
-            .briscola-app .stack-count {
-                font-size: 14px;
-            }
-
-            .briscola-app .stack-caption {
-                font-size: 10px;
-            }
-
-            .briscola-app .stack-count-row {
-                margin-top: 4px;
-                gap: 3px;
-            }
-
-            .briscola-app .trump-panel::after {
-                margin-top: 4px;
-                font-size: 14px;
-            }
-
-            .briscola-app .header-rail {
-                justify-content: flex-start;
-                align-items: flex-start;
-                min-width: 0;
-                flex-wrap: nowrap;
-                gap: 4px;
-            }
-
-            .briscola-app .trick-status {
-                order: 1;
-                flex: 1 1 auto;
-                min-width: 0;
-                text-align: center;
-                overflow-wrap: anywhere;
-            }
-
-            .briscola-app .header-rail .control-row {
-                order: 0;
-                flex: 0 0 auto;
-                flex-wrap: nowrap;
-            }
-
-            .briscola-app .footer-bar {
-                flex-wrap: nowrap;
-                justify-content: space-between;
-                gap: 4px;
-            }
-
-            .briscola-app .footer-pill {
-                padding: 2px 4px;
-                font-size: 10px;
-                white-space: nowrap;
-            }
-
-            .briscola-app .won-count {
-                display: none;
-            }
-
-            .briscola-app .player-hand {
-                min-height: calc((var(--card-width) * 1.5) + 10px);
-            }
-
-            .briscola-app .player-zone {
-                display: grid;
-                grid-template-columns: 34px minmax(0, 1fr);
-                align-items: center;
-                justify-items: stretch;
-                gap: 4px;
-                min-width: 0;
-            }
-
-            .briscola-app .player-zone .player-label {
-                text-align: left;
-            }
-
-            .briscola-app .player-hand {
-                min-width: 0;
-                flex-wrap: nowrap;
-                justify-content: center;
-                gap: 6px;
-            }
-
-            .briscola-app .player-hand > .card-shell,
-            .briscola-app .player-hand > .card-button {
-                width: calc((100% - 12px) / 3);
-                min-width: calc((100% - 12px) / 3);
-            }
-
-            .briscola-app .card-shell,
-            .briscola-app .card-button,
-            .briscola-app .card-placeholder {
-                width: var(--card-width);
-                min-width: var(--card-width);
-            }
-
-            .briscola-app.fill-screen .player-hand > .card-shell,
-            .briscola-app.fill-screen .player-hand > .card-button {
-                width: min(104px, calc((100% - 12px) / 3));
-                min-width: min(104px, calc((100% - 12px) / 3));
-            }
-
-            .briscola-app.fill-screen .deck-stack,
-            .briscola-app.fill-screen .trick-stack {
-                width: var(--middle-card-width);
-                height: calc(var(--middle-card-width) * 1.5);
-            }
-
-            .briscola-app.fill-screen .deck-stack .card-shell {
-                width: 100%;
-                min-width: 0;
-            }
-
-            .briscola-app.fill-screen .deck-stack .card-back:nth-last-child(2) {
-                transform: translateY(2px);
-            }
-
-            .briscola-app.fill-screen .deck-stack .card-back:nth-last-child(3) {
-                transform: translateY(4px);
-            }
-
-            .briscola-app.fill-screen .trick-slots {
-                grid-template-columns: repeat(2, var(--middle-card-width));
-                gap: 2px;
-            }
-
-            .briscola-app.fill-screen .trick-slot > .card-shell,
-            .briscola-app.fill-screen .trick-slot > .card-placeholder,
-            .briscola-app.fill-screen .trick-slot > .card-button {
-                width: var(--middle-card-width);
-                min-width: var(--middle-card-width);
-            }
-
-            .briscola-app.fill-screen .trump-panel > .card-shell,
-            .briscola-app.fill-screen .trump-panel > .card-placeholder {
-                width: var(--middle-card-width);
-                min-width: var(--middle-card-width);
-            }
-
-            .briscola-app.fill-screen .stack-panel {
-                padding: 6px 3px;
-            }
-
-            .briscola-app.fill-screen .stack-label,
-            .briscola-app.fill-screen .trick-slot-label {
-                font-size: 14px;
-            }
-
-            .briscola-app.fill-screen .stack-count {
-                font-size: 18px;
-            }
-
-            .briscola-app.fill-screen .stack-caption {
-                font-size: 12px;
-            }
-        }
-
-    "#,
-    );
+    style.set_inner_html(concat!(
+        include_str!("../assets/css/briscola.layout.css"),
+        "\n",
+        include_str!("../assets/css/briscola.black.css"),
+        "\n",
+        include_str!("../assets/css/briscola.white.css"),
+    ));
 
     document
         .head()
@@ -1486,14 +579,14 @@ fn show_card_preview(app: &Element, card: &Element, pinned: bool) {
     if let Ok(svg_clone) = svg.clone_node_with_deep(true) {
         let _ = picture.append_child(&svg_clone);
     }
-    let hint = create_element(&document, "div", "card-zoom-hint");
     let name = create_element(&document, "span", "card-zoom-name");
     name.set_text_content(Some(
         &card
             .get_attribute("data-card-name")
             .unwrap_or_else(|| "Card".to_string()),
     ));
-    let _ = hint.append_child(&name);
+    let _ = picture.append_child(&name);
+    let hint = create_element(&document, "div", "card-zoom-hint");
     if pinned {
         let instruction = create_element(&document, "span", "card-zoom-instruction");
         instruction.set_text_content(Some(if card.class_list().contains("card-button") {
@@ -1509,7 +602,7 @@ fn show_card_preview(app: &Element, card: &Element, pinned: bool) {
     let rect = card.get_bounding_client_rect();
     let width = rect.width().max(1.0);
     let image_width = (width * 2.2).min(240.0).max(1.0);
-    let caption_height = if pinned { 38.0 } else { 22.0 };
+    let caption_height = if pinned { 28.0 } else { 0.0 };
     let visual_viewport = window().and_then(|window| window.visual_viewport());
     let viewport_left = visual_viewport
         .as_ref()
@@ -1906,13 +999,10 @@ fn production_theme(document: &Document) -> String {
         .unwrap_or_else(|| "terminal".to_string())
 }
 
-fn app_class_name(document: &Document, fill_screen: bool) -> String {
+fn app_class_name(document: &Document) -> String {
     let mut class_name = "briscola-app".to_string();
     if production_theme(document) == "white" {
         class_name.push_str(" theme-white");
-    }
-    if fill_screen {
-        class_name.push_str(" fill-screen");
     }
     class_name
 }
@@ -2038,29 +1128,6 @@ fn build_controls(doc: &Document, state: Rc<RefCell<BrowserGame>>) -> Element {
             render_dashboard(&document(), Rc::clone(&restart_state));
         }))
         .expect("restart button should be appended");
-
-    let fill_state = Rc::clone(&state);
-    let bigger_view =
-        render_action_button(doc, "BIGGER VIEW", state.borrow().fill_screen, move || {
-            {
-                let mut game = fill_state.borrow_mut();
-                game.toggle_fill_screen();
-            }
-            render_dashboard(&document(), Rc::clone(&fill_state));
-        });
-    bigger_view
-        .set_attribute(
-            "class",
-            if state.borrow().fill_screen {
-                "terminal-button active bigger-view-toggle"
-            } else {
-                "terminal-button bigger-view-toggle"
-            },
-        )
-        .expect("bigger view class should be set");
-    controls
-        .append_child(&bigger_view)
-        .expect("fill button should be appended");
 
     controls
 }
@@ -2511,7 +1578,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     mount.set_inner_html("");
 
     let state_ref = state.borrow();
-    mount.set_class_name(&app_class_name(document, state_ref.fill_screen));
+    mount.set_class_name(&app_class_name(document));
     let (score1, score2) = state_ref.scores();
 
     let dashboard = create_element(document, "main", "dashboard");
@@ -2898,14 +1965,7 @@ fn card_svg(card: card::Card) -> &'static str {
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
-    let mut game = BrowserGame::new();
-    // Match the mobile CSS breakpoint on first load; subsequent renders and
-    // restarts preserve the user's Bigger View toggle choice.
-    game.fill_screen = window()
-        .and_then(|window| window.inner_width().ok())
-        .and_then(|width| width.as_f64())
-        .map_or(false, |width| width <= 720.0);
-    let state = Rc::new(RefCell::new(game));
+    let state = Rc::new(RefCell::new(BrowserGame::new()));
     render_dashboard(&document(), Rc::clone(&state));
 }
 
@@ -3133,7 +2193,6 @@ mod browser_tests {
         game.mode = GameMode::AiVsAi;
         game.player1_difficulty = ai::AiDifficulty::Random;
         game.player2_difficulty = ai::AiDifficulty::Challenger;
-        game.fill_screen = true;
         game.restart();
         assert_eq!(game.tick_generation(), 1);
         assert!(matches!(game.phase, Phase::Setup));
@@ -3141,7 +2200,6 @@ mod browser_tests {
         assert_eq!(game.mode, GameMode::AiVsAi);
         assert_eq!(game.player1_difficulty, ai::AiDifficulty::Random);
         assert_eq!(game.player2_difficulty, ai::AiDifficulty::Challenger);
-        assert!(game.fill_screen);
     }
 
     #[test]
