@@ -44,6 +44,39 @@ enum GameMode {
     AiVsAi,
 }
 
+#[derive(Clone, Copy, Default)]
+struct LaunchConfig {
+    mode: Option<GameMode>,
+    difficulty: Option<ai::AiDifficulty>,
+}
+
+fn parse_launch_config(search: &str) -> LaunchConfig {
+    let mut config = LaunchConfig::default();
+    for pair in search.trim_start_matches('?').split('&') {
+        let Some((key, value)) = pair.split_once('=') else {
+            continue;
+        };
+        match key {
+            "mode" => {
+                config.mode = match value.to_ascii_lowercase().as_str() {
+                    "human-vs-ai" => Some(GameMode::HumanVsAi),
+                    "ai-vs-ai" => Some(GameMode::AiVsAi),
+                    _ => config.mode,
+                };
+            }
+            "difficulty" => {
+                config.difficulty = match value.to_ascii_lowercase().as_str() {
+                    "random" => Some(ai::AiDifficulty::Random),
+                    "challenger" => Some(ai::AiDifficulty::Challenger),
+                    _ => config.difficulty,
+                };
+            }
+            _ => {}
+        }
+    }
+    config
+}
+
 struct BrowserGame {
     deck: deck::Deck,
     briscola: card::Card,
@@ -100,6 +133,27 @@ impl BrowserGame {
             last_played_player: None,
             tick_generation: 0,
         }
+    }
+
+    fn from_launch_config(config: LaunchConfig) -> (Self, bool) {
+        let mut game = Self::new();
+        if let Some(mode) = config.mode {
+            game.mode = mode;
+        }
+        if let Some(difficulty) = config.difficulty {
+            match game.mode {
+                GameMode::HumanVsAi => game.player2_difficulty = difficulty,
+                GameMode::AiVsAi => {
+                    game.player1_difficulty = difficulty;
+                    game.player2_difficulty = difficulty;
+                }
+            }
+        }
+        let should_start = config.mode.is_some() && config.difficulty.is_some();
+        if should_start {
+            game.start_game();
+        }
+        (game, should_start)
     }
 
     fn leader_index(&self) -> usize {
@@ -1363,7 +1417,13 @@ fn build_deck_panel(document: &Document, deck_size: usize) -> Element {
         .expect("deck stack should be appended");
 
     let count_row = create_element(document, "div", "stack-count-row");
-    append_text(document, &count_row, "p", "stack-count", &deck_size.to_string());
+    append_text(
+        document,
+        &count_row,
+        "p",
+        "stack-count",
+        &deck_size.to_string(),
+    );
     append_text(document, &count_row, "p", "stack-caption", "remaining");
     panel
         .append_child(&count_row)
@@ -1965,13 +2025,72 @@ fn card_svg(card: card::Card) -> &'static str {
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
-    let state = Rc::new(RefCell::new(BrowserGame::new()));
+    let search = window()
+        .and_then(|browser| browser.location().search().ok())
+        .unwrap_or_default();
+    let config = parse_launch_config(&search);
+    let (game, should_start) = BrowserGame::from_launch_config(config);
+    let state = Rc::new(RefCell::new(game));
     render_dashboard(&document(), Rc::clone(&state));
+    if should_start {
+        let tick_generation = state.borrow().tick_generation();
+        schedule_next_tick(Rc::clone(&state), COIN_TOSS_DISPLAY_MS, tick_generation);
+    }
 }
 
 #[cfg(test)]
 mod browser_tests {
     use super::*;
+
+    #[test]
+    fn no_launch_options_keep_setup_modal_state() {
+        let config = parse_launch_config("");
+        let (game, should_start) = BrowserGame::from_launch_config(config);
+        assert!(!should_start);
+        assert!(matches!(game.phase, Phase::Setup));
+        assert_eq!(game.mode, GameMode::HumanVsAi);
+        assert_eq!(game.player2_difficulty, ai::AiDifficulty::Challenger);
+    }
+
+    #[test]
+    fn complete_launch_options_start_human_vs_ai_with_selected_difficulty() {
+        let config = parse_launch_config("?mode=human-vs-ai&difficulty=random");
+        let (game, should_start) = BrowserGame::from_launch_config(config);
+        assert!(should_start);
+        assert!(matches!(game.phase, Phase::CoinToss));
+        assert_eq!(game.mode, GameMode::HumanVsAi);
+        assert_eq!(game.player2_difficulty, ai::AiDifficulty::Random);
+    }
+
+    #[test]
+    fn ai_vs_ai_difficulty_applies_to_both_players() {
+        let config = parse_launch_config("?mode=ai-vs-ai&difficulty=challenger");
+        let (game, should_start) = BrowserGame::from_launch_config(config);
+        assert!(should_start);
+        assert_eq!(game.player1_difficulty, ai::AiDifficulty::Challenger);
+        assert_eq!(game.player2_difficulty, ai::AiDifficulty::Challenger);
+    }
+
+    #[test]
+    fn partial_and_invalid_options_keep_setup_and_preserve_valid_values() {
+        let config = parse_launch_config("?mode=ai-vs-ai&difficulty=bad");
+        let (game, should_start) = BrowserGame::from_launch_config(config);
+        assert!(!should_start);
+        assert!(matches!(game.phase, Phase::Setup));
+        assert_eq!(game.mode, GameMode::AiVsAi);
+        assert_eq!(game.player1_difficulty, ai::AiDifficulty::Random);
+        assert_eq!(game.player2_difficulty, ai::AiDifficulty::Challenger);
+    }
+
+    #[test]
+    fn difficulty_without_mode_preselects_default_mode_but_keeps_setup() {
+        let config = parse_launch_config("?difficulty=random");
+        let (game, should_start) = BrowserGame::from_launch_config(config);
+        assert!(!should_start);
+        assert!(matches!(game.phase, Phase::Setup));
+        assert_eq!(game.mode, GameMode::HumanVsAi);
+        assert_eq!(game.player2_difficulty, ai::AiDifficulty::Random);
+    }
 
     #[test]
     fn first_touch_tap_previews_and_suppresses_click() {

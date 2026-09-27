@@ -8,8 +8,8 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly run_app: () => void;
-    readonly wasm_bindgen__convert__closures_____invoke__hea5c5910814a76ee: (a: number, b: number, c: any) => void;
-    readonly wasm_bindgen__convert__closures_____invoke__h5fdfd2491eed6619: (a: number, b: number) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__h26334a7e0c766fb3: (a: number, b: number, c: any) => void;
+    readonly wasm_bindgen__convert__closures_____invoke__hba1db0e12f9b784e: (a: number, b: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __externref_table_alloc: () => number;
