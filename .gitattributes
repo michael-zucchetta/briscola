@@ -4,7 +4,7 @@ assets/briscola/piacentine/**/commandline_data/*.js linguist-vendored
 # wasm-pack output is generated from the Rust source.
 demo/wasm.js linguist-generated
 demo/wasm_bg.wasm linguist-generated
-assets/briscola.*css # wasm-pack output is generated from the Rust source.
-demo/wasm.js linguist-generated
-demo/wasm_bg.wasm linguist-generated
+# Keep the source stylesheet files out of GitHub's language statistics.
+assets/css/*.css linguist-detectable=false
+
 demo/*css linguist-generated
