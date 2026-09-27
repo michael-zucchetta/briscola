@@ -1183,6 +1183,26 @@ fn build_controls(doc: &Document, state: Rc<RefCell<BrowserGame>>) -> Element {
         }))
         .expect("restart button should be appended");
 
+    let github_group = create_element(doc, "span", "github-reference-group");
+    append_text(doc, &github_group, "span", "github-reference-separator", "|");
+    let github_reference = create_element(doc, "a", "github-reference");
+    github_reference.set_text_content(Some(GITHUB_REFERENCE_LABEL));
+    github_reference
+        .set_attribute("href", GITHUB_REFERENCE_HREF)
+        .expect("GitHub link should have a destination");
+    github_reference
+        .set_attribute("target", GITHUB_REFERENCE_TARGET)
+        .expect("GitHub link should open in a new tab");
+    github_reference
+        .set_attribute("rel", GITHUB_REFERENCE_REL)
+        .expect("GitHub link should have safe external-link attributes");
+    github_group
+        .append_child(&github_reference)
+        .expect("GitHub link should be appended to its group");
+    controls
+        .append_child(&github_group)
+        .expect("GitHub link group should be appended after NEW");
+
     controls
 }
 
@@ -1652,21 +1672,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     title
         .append_child(&brand)
         .expect("Briscola brand should be appended to the title");
-    append_text(document, &title, "span", "", " --wasm --browser-game | ");
-    let github_reference = create_element(document, "a", "github-reference");
-    github_reference.set_text_content(Some(GITHUB_REFERENCE_LABEL));
-    github_reference
-        .set_attribute("href", GITHUB_REFERENCE_HREF)
-        .expect("GitHub link should have a destination");
-    github_reference
-        .set_attribute("target", GITHUB_REFERENCE_TARGET)
-        .expect("GitHub link should open in a new tab");
-    github_reference
-        .set_attribute("rel", GITHUB_REFERENCE_REL)
-        .expect("GitHub link should have safe external-link attributes");
-    title
-        .append_child(&github_reference)
-        .expect("GitHub link should be appended to the title");
+    append_text(document, &title, "span", "", " --wasm --browser-game");
     title_wrap
         .append_child(&title)
         .expect("title should be appended");
