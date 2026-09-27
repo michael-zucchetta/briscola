@@ -61,6 +61,16 @@
   text-decoration: none;
 }
 
+.briscola-app .github-reference-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.briscola-app .github-reference-separator {
+  color: var(--game-muted);
+}
+
 .briscola-app .github-reference:hover,
 .briscola-app .github-reference:focus-visible {
   color: var(--game-cyan);
@@ -768,8 +778,6 @@
   }
 
   .briscola-app .table-title { font-size: 16px; }
-  .briscola-app .github-reference { display: block; margin-top: 3px; }
-
   .briscola-app .terminal-button {
     min-height: 28px;
     padding: 3px 6px;
