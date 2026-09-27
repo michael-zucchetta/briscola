@@ -1672,7 +1672,7 @@ fn render_dashboard(document: &Document, state: Rc<RefCell<BrowserGame>>) {
     title
         .append_child(&brand)
         .expect("Briscola brand should be appended to the title");
-    append_text(document, &title, "span", "", " --wasm --browser-game");
+    append_text(document, &title, "span", "", " --wasm");
     title_wrap
         .append_child(&title)
         .expect("title should be appended");
