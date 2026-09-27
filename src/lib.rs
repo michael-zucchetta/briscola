@@ -617,6 +617,39 @@ fn dismiss_card_preview(app: &Element) {
     }
 }
 
+fn maintain_card_preview(app: &Element) {
+    let Some(preview) = app
+        .query_selector(".card-zoom[data-pinned='true']")
+        .ok()
+        .flatten()
+    else {
+        dismiss_card_preview(app);
+        return;
+    };
+    let Some(card_name) = preview
+        .query_selector(".card-zoom-name")
+        .ok()
+        .flatten()
+        .and_then(|name| name.text_content())
+    else {
+        dismiss_card_preview(app);
+        return;
+    };
+    let Ok(cards) = app.query_selector_all("[data-preview-card='true']") else {
+        return;
+    };
+    for index in 0..cards.length() {
+        let Some(card) = cards.item(index).and_then(|node| node.dyn_into::<Element>().ok()) else {
+            continue;
+        };
+        if card.get_attribute("data-card-name").as_deref() == Some(card_name.as_str()) {
+            show_card_preview(app, &card, true);
+            return;
+        }
+    }
+    dismiss_card_preview(app);
+}
+
 fn show_card_preview(app: &Element, card: &Element, pinned: bool) {
     let Some(svg) = card.query_selector("svg").ok().flatten() else {
         return;
@@ -819,7 +852,14 @@ fn install_card_preview_handlers(app: &Element) {
             .target()
             .and_then(|target| closest_preview_card(&target, &focus_app))
         {
-            show_card_preview(&focus_app, &card, false);
+            let pinned = focus_app
+                .query_selector(".card-zoom[data-pinned='true']")
+                .ok()
+                .flatten()
+                .is_some();
+            if !pinned {
+                show_card_preview(&focus_app, &card, false);
+            }
         }
     }));
     let _ = app.add_event_listener_with_callback("focusin", focus.as_ref().unchecked_ref());
@@ -832,7 +872,7 @@ fn install_card_preview_handlers(app: &Element) {
             .and_then(|target| closest_preview_card(&target, &blur_app))
             .is_some()
         {
-            dismiss_card_preview(&blur_app);
+            maintain_card_preview(&blur_app);
         }
     }));
     let _ = app.add_event_listener_with_callback("focusout", blur.as_ref().unchecked_ref());
@@ -1007,10 +1047,8 @@ fn install_card_preview_handlers(app: &Element) {
         let _ = key.into_js_value();
 
         let scroll_app = app.clone();
-        let scroll_gesture = Rc::clone(&gesture);
         let scroll = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |_| {
-            dismiss_card_preview(&scroll_app);
-            scroll_gesture.borrow_mut().cancel();
+            maintain_card_preview(&scroll_app);
         }));
         let _ = document.add_event_listener_with_callback_and_bool(
             "scroll",
@@ -1023,7 +1061,7 @@ fn install_card_preview_handlers(app: &Element) {
     if let Some(window) = window() {
         let resize_app = app.clone();
         let resize = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |_| {
-            dismiss_card_preview(&resize_app);
+            maintain_card_preview(&resize_app);
         }));
         let _ = window.add_event_listener_with_callback("resize", resize.as_ref().unchecked_ref());
         let _ = resize.into_js_value();
@@ -1031,7 +1069,7 @@ fn install_card_preview_handlers(app: &Element) {
         if let Some(viewport) = window.visual_viewport() {
             let viewport_app = app.clone();
             let viewport_change = Closure::<dyn FnMut(Event)>::wrap(Box::new(move |_| {
-                dismiss_card_preview(&viewport_app);
+                maintain_card_preview(&viewport_app);
             }));
             let _ = viewport.add_event_listener_with_callback(
                 "resize",
